@@ -41,7 +41,7 @@ class MatrixPlugin implements Plugin<Project> {
         if (!project.plugins.hasPlugin('com.android.application')) {
             throw new GradleException('Matrix Plugin, Android Application plugin required')
         }
-        project.task("").dependsOn project.task("")
+
         project.afterEvaluate {
             def android = project.extensions.android
             def configuration = project.matrix

@@ -1,5 +1,11 @@
 package com.tencent.matrix.trace;
 
+import com.tencent.matrix.javalib.util.FileUtil;
+import com.tencent.matrix.trace.retrace.MappingCollector;
+
+import java.io.File;
+import java.util.HashSet;
+
 public class Configuration {
 
     public String packageName;
@@ -8,14 +14,51 @@ public class Configuration {
     public String methodMapFilePath;
     public String ignoreMethodMapFilePath;
     public String blackListFilePath;
+    public String traceClassOut;
+    public HashSet<String> blackSet = new HashSet<>();
 
-    Configuration(String packageName, String mappingDir, String baseMethodMapPath, String methodMapFilePath, String ignoreMethodMapFilePath, String blackListFilePath) {
+    Configuration(String packageName, String mappingDir, String baseMethodMapPath, String methodMapFilePath,
+                  String ignoreMethodMapFilePath, String blackListFilePath, String traceClassOut) {
         this.packageName = packageName;
         this.mappingDir = mappingDir;
         this.baseMethodMapPath = baseMethodMapPath;
         this.methodMapFilePath = methodMapFilePath;
         this.ignoreMethodMapFilePath = ignoreMethodMapFilePath;
         this.blackListFilePath = blackListFilePath;
+        this.traceClassOut = traceClassOut;
+    }
+
+    public void parseBlackFile(MappingCollector processor) {
+        File blackFile = new File(blackListFilePath);
+        if (!blackFile.exists()) {
+            return;
+        }
+
+        String blackStr = TraceBuildConstants.DEFAULT_BLACK_TRACE + FileUtil.readFileAsString(blackFile.getAbsolutePath());
+
+        String[] blackArray = blackStr.trim().replace("/", ".").split("\n");
+
+        if (blackArray != null) {
+            for (String black : blackArray) {
+                if (black.length() == 0) {
+                    continue;
+                }
+                if (black.startsWith("#")) {
+                    continue;
+                }
+                if (black.startsWith("[")) {
+                    continue;
+                }
+
+                if (black.startsWith("-keepclass ")) {
+                    black = black.replace("-keepclass ", "");
+                    blackSet.add(processor.proguardClassName(black, black));
+                } else if (black.startsWith("-keeppackage ")) {
+                    black = black.replace("-keeppackage ", "");
+                    blackSet.add(processor.proguardPackageName(black, black));
+                }
+            }
+        }
     }
 
     @Override
@@ -26,7 +69,8 @@ public class Configuration {
                 "|* baseMethodMapPath:\t" + baseMethodMapPath + "\n" +
                 "|* methodMapFilePath:\t" + methodMapFilePath + "\n" +
                 "|* ignoreMethodMapFilePath:\t" + ignoreMethodMapFilePath + "\n" +
-                "|* blackListFilePath:\t" + blackListFilePath + "\n";
+                "|* blackListFilePath:\t" + blackListFilePath + "\n" +
+                "|* traceClassOut:\t" + traceClassOut + "\n";
     }
 
     public static class Builder {
@@ -37,6 +81,7 @@ public class Configuration {
         public String methodMapFile;
         public String ignoreMethodMapFile;
         public String blackListFile;
+        public String traceClassOut;
 
         public Builder setPackageName(String packageName) {
             this.packageName = packageName;
@@ -50,6 +95,11 @@ public class Configuration {
 
         public Builder setBaseMethodMap(String baseMethodMap) {
             this.baseMethodMap = baseMethodMap;
+            return this;
+        }
+
+        public Builder setTraceClassOut(String traceClassOut) {
+            this.traceClassOut = traceClassOut;
             return this;
         }
 
@@ -69,7 +119,7 @@ public class Configuration {
         }
 
         public Configuration build() {
-            return new Configuration(packageName, mappingPath, baseMethodMap, methodMapFile, ignoreMethodMapFile, blackListFile);
+            return new Configuration(packageName, mappingPath, baseMethodMap, methodMapFile, ignoreMethodMapFile, blackListFile, traceClassOut);
         }
 
     }
