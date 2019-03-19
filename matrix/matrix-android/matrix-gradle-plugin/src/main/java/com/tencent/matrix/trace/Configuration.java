@@ -3,30 +3,30 @@ package com.tencent.matrix.trace;
 public class Configuration {
 
     public String packageName;
-    public String mappingPath;
-    public String baseMethodMap;
-    public String methodMapFile;
-    public String ignoreMethodMapFile;
-    public String blackListFile;
+    public String mappingDir;
+    public String baseMethodMapPath;
+    public String methodMapFilePath;
+    public String ignoreMethodMapFilePath;
+    public String blackListFilePath;
 
-    Configuration(String packageName, String mappingPath, String baseMethodMap, String methodMapFile, String ignoreMethodMapFile, String blackListFile) {
+    Configuration(String packageName, String mappingDir, String baseMethodMapPath, String methodMapFilePath, String ignoreMethodMapFilePath, String blackListFilePath) {
         this.packageName = packageName;
-        this.mappingPath = mappingPath;
-        this.baseMethodMap = baseMethodMap;
-        this.methodMapFile = methodMapFile;
-        this.ignoreMethodMapFile = ignoreMethodMapFile;
-        this.blackListFile = blackListFile;
+        this.mappingDir = mappingDir;
+        this.baseMethodMapPath = baseMethodMapPath;
+        this.methodMapFilePath = methodMapFilePath;
+        this.ignoreMethodMapFilePath = ignoreMethodMapFilePath;
+        this.blackListFilePath = blackListFilePath;
     }
 
     @Override
     public String toString() {
         return "\n# Configuration" + "\n" +
                 "|* packageName:\t" + packageName + "\n" +
-                "|* mappingPath:\t" + mappingPath + "\n" +
-                "|* baseMethodMap:\t" + baseMethodMap + "\n" +
-                "|* methodMapFile:\t" + methodMapFile + "\n" +
-                "|* ignoreMethodMapFile:\t" + ignoreMethodMapFile + "\n" +
-                "|* blackListFile:\t" + blackListFile + "\n";
+                "|* mappingDir:\t" + mappingDir + "\n" +
+                "|* baseMethodMapPath:\t" + baseMethodMapPath + "\n" +
+                "|* methodMapFilePath:\t" + methodMapFilePath + "\n" +
+                "|* ignoreMethodMapFilePath:\t" + ignoreMethodMapFilePath + "\n" +
+                "|* blackListFilePath:\t" + blackListFilePath + "\n";
     }
 
     public static class Builder {
@@ -53,12 +53,12 @@ public class Configuration {
             return this;
         }
 
-        public Builder setMethodMapDir(String methodMapDir) {
+        public Builder setMethodMapFilePath(String methodMapDir) {
             methodMapFile = methodMapDir;
             return this;
         }
 
-        public Builder setIgnoreMethodMapDir(String methodMapDir) {
+        public Builder setIgnoreMethodMapFilePath(String methodMapDir) {
             ignoreMethodMapFile = methodMapDir;
             return this;
         }
