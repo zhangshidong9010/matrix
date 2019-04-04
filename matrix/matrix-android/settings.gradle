@@ -1,4 +1,5 @@
-include ':matrix-gradle-plugin' 
+include ':matrix-gradle-plugin'
+include ':matrix-fd-canary'
 include ':matrix-thread-canary'
 include ':matrix-android-commons'
 include ':matrix-android-lib'

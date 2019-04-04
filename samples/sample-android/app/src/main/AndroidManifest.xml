@@ -30,6 +30,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".io.TestIOActivity"></activity>
+        <activity android:name=".fd.TestFdActivity"></activity>
         <activity android:name=".resource.TestLeakActivity"></activity>
         <activity android:name=".trace.TestTraceMainActivity"></activity>
         <activity android:name=".trace.TestTraceFragmentActivity"></activity>

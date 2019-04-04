@@ -23,12 +23,13 @@ import java.lang.annotation.RetentionPolicy;
 
 public class IssueFilter {
 
-    @StringDef({ISSUE_IO, ISSUE_LEAK, ISSUE_TRACE, ISSUE_SQLITELINT})
+    @StringDef({ISSUE_IO, ISSUE_FD, ISSUE_LEAK, ISSUE_TRACE, ISSUE_SQLITELINT})
     @Retention(RetentionPolicy.SOURCE)
     public @interface FILTER {
     }
 
     public static final String ISSUE_IO = "ISSUE_IO";
+    public static final String ISSUE_FD = "ISSUE_FD";
     public static final String ISSUE_LEAK = "ISSUR_LEAK";
     public static final String ISSUE_TRACE = "ISSUR_TRACE";
     public static final String ISSUE_SQLITELINT = "ISSUR_SQLITELINT";

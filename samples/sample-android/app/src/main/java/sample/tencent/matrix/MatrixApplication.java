@@ -23,8 +23,11 @@ import android.os.Debug;
 import android.os.SystemClock;
 
 import com.tencent.matrix.Matrix;
+import com.tencent.matrix.fdcanary.FDCanaryPlugin;
+import com.tencent.matrix.fdcanary.config.FDConfig;
 import com.tencent.matrix.iocanary.IOCanaryPlugin;
 import com.tencent.matrix.iocanary.config.IOConfig;
+import com.tencent.matrix.report.Issue;
 import com.tencent.matrix.resource.ResourcePlugin;
 import com.tencent.matrix.resource.config.ResourceConfig;
 import com.tencent.matrix.threadcanary.ThreadConfig;
@@ -114,6 +117,16 @@ public class MatrixApplication extends Application {
             builder.plugin(threadWatcher);
 
 
+            FDCanaryPlugin fdCanaryPlugin = new FDCanaryPlugin(new FDConfig.Builder()
+                    .dynamicConfig(dynamicConfig)
+                    .build());
+            fdCanaryPlugin.setDetectIssueListener(new FDCanaryPlugin.OnDetectIssueListener() {
+                @Override
+                public void onDetectIssueListener(Issue issue) {
+
+                }
+            });
+            builder.plugin(fdCanaryPlugin);
         }
 
         Matrix.init(builder.build());

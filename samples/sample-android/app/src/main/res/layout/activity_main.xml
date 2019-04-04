@@ -32,6 +32,16 @@
         android:layout_weight="1"
         android:text="io_canary"
         android:textSize="20dp" />
+    <Button
+        android:id="@+id/test_fd"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_below="@+id/test_trace"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentLeft="true"
+        android:layout_weight="1"
+        android:text="fd_canary"
+        android:textSize="20dp" />
 
     <Button
         android:id="@+id/test_sqlite_lint"

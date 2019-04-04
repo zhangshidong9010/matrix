@@ -95,6 +95,7 @@ dependencies {
     compile group: "com.tencent.matrix", name: "matrix-io-canary", version: MATRIX_VERSION, changing: true
     compile group: "com.tencent.matrix", name: "matrix-thread-canary", version: MATRIX_VERSION, changing: true
     compile group: "com.tencent.matrix", name: "matrix-sqlite-lint-android-sdk", version: MATRIX_VERSION, changing: true
+    compile group: "com.tencent.matrix", name: "matrix-fd-canary", version: MATRIX_VERSION, changing: true
     releaseCompile group: "com.tencent.matrix", name: "matrix-sqlite-lint-android-sdk-no-op", version: MATRIX_VERSION, changing: true
 
     compile 'com.android.support:appcompat-v7:28.0.0'

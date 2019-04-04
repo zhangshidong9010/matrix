@@ -82,6 +82,12 @@ public interface IDynamicConfig {
         clicfg_matrix_thread_contain_sys,
         clicfg_matrix_thread_filter_thread_set,
 
+        //fd
+        clicfg_matrix_fd_dump_timer_count_per_day,
+        clicfg_matrix_fd_dump_timer_interval,
+        clicfg_matrix_fd_dump_timer_looper_check_interval,
+
+
     }
 
     String get(String key, String defStr);
