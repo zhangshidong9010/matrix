@@ -5,10 +5,9 @@ import android.os.Looper;
 import android.os.MessageQueue;
 import android.support.annotation.CallSuper;
 import android.util.Printer;
+import android.view.Choreographer;
 
 import com.tencent.matrix.AppActiveMatrixDelegate;
-import com.tencent.matrix.Matrix;
-import com.tencent.matrix.util.MatrixHandlerThread;
 import com.tencent.matrix.util.MatrixLog;
 
 import java.lang.reflect.Field;
@@ -88,8 +87,10 @@ public class LooperMonitor implements MessageQueue.IdleHandler {
 
                 if (isValid) {
                     dispatch(x.charAt(0) == '>');
-                    if (MatrixHandlerThread.isDebug && !AppActiveMatrixDelegate.INSTANCE.isAppForeground() && x.charAt(0) == '>') {
-                        MatrixLog.i(TAG, x);
+                    if (!AppActiveMatrixDelegate.INSTANCE.isAppForeground() && x.charAt(0) == '>') {
+                        StringBuilder ss = new StringBuilder(x);
+                        test(ss.append(" callbacks:"));
+                        MatrixLog.i(TAG, ss.toString());
                     }
                 }
 
@@ -143,6 +144,43 @@ public class LooperMonitor implements MessageQueue.IdleHandler {
             MatrixLog.e(TAG, e.toString());
         }
         return null;
+    }
+
+    private static Object[] callbackQueues;
+
+    private static void test(StringBuilder ss) {
+        if (null == callbackQueues) {
+            callbackQueues = reflectObject(Choreographer.getInstance(), "mCallbackQueues");
+        }
+        ss.append("\n");
+        Object head = reflectObject(callbackQueues[UIThreadMonitor.CALLBACK_INPUT], "mHead");
+        ss.append("CALLBACK_INPUT->");
+        while (head != null) {
+            Object action = reflectObject(head, "action");
+            ss.append(action.getClass().getName()).append(", ");
+            Object next = reflectObject(head, "next");
+            head = next;
+        }
+        ss.append("\n");
+        head = reflectObject(callbackQueues[UIThreadMonitor.CALLBACK_ANIMATION], "mHead");
+        ss.append("CALLBACK_ANIMATION->");
+        while (head != null) {
+            Object action = reflectObject(head, "action");
+            ss.append(action.getClass().getName()).append(", ");
+            Object next = reflectObject(head, "next");
+            head = next;
+        }
+        ss.append("\n");
+        head = reflectObject(callbackQueues[UIThreadMonitor.CALLBACK_TRAVERSAL], "mHead");
+        ss.append("CALLBACK_TRAVERSAL->");
+        while (head != null) {
+            Object action = reflectObject(head, "action");
+            ss.append(action.getClass().getName()).append(", ");
+            Object next = reflectObject(head, "next");
+            head = next;
+        }
+
+
     }
 
 }
