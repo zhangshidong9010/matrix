@@ -20,6 +20,7 @@ import android.app.ActivityManager;
 import android.content.Context;
 
 import com.google.gson.Gson;
+import com.tencent.matrix.fdcanary.config.FDConfig;
 import com.tencent.matrix.fdcanary.config.SharePluginInfo;
 import com.tencent.matrix.fdcanary.core.FDDumpInfo;
 import com.tencent.matrix.fdcanary.core.FDInfo;
@@ -101,6 +102,9 @@ public final class FDCanaryUtil {
     }
 
 
+    /**
+     * fd数据转化为issue
+     */
     public static Issue convertFDDumpInfoToReportIssue(FDInfo fdInfo) {
         if (fdInfo == null) {
             return null;
@@ -126,6 +130,35 @@ public final class FDCanaryUtil {
         }
 
         return issue;
+    }
+
+
+    //处理来自JNI的数据
+    public static void processingJNIFDDumpInfo(FDConfig config, FDInfo fdInfo) {
+        if (fdInfo == null) {
+            return;
+        }
+
+        if (!(fdInfo instanceof FDDumpInfo)) {
+            return;
+        }
+
+
+
+        FDDumpInfo info = (FDDumpInfo)fdInfo;
+
+        if (info.duration >= config.getDefaultDumpDurationTimeoutWarning()) {
+            info.isDurationTimeOutWarning = true;
+        }
+
+        if (info.totalFD >= config.getDefaultDumpFdCountWarning()) {
+            info.isFDCountWarning = true;
+        }
+
+        if (Math.abs(info.totalFD - info.maxFD) >= config.getDefaultDumpFdSparseDegreeWarning()) {
+            info.isFDCountSparseDegreeWarning = true;
+        }
+
     }
 
     public static void setPInfosMap(Context context) {

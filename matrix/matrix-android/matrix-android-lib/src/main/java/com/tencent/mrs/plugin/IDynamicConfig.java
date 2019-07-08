@@ -86,6 +86,9 @@ public interface IDynamicConfig {
         clicfg_matrix_fd_dump_timer_count_per_day,
         clicfg_matrix_fd_dump_timer_interval,
         clicfg_matrix_fd_dump_timer_looper_check_interval,
+        clicfg_matrix_fd_dump_duration_timeout_warning,
+        clicfg_matrix_fd_dump_fd_count_warning,
+        clicfg_matrix_fd_dump_fd_sparse_degree,
 
 
     }

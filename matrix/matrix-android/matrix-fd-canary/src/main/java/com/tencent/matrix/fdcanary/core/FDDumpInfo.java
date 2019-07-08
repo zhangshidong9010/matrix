@@ -16,10 +16,13 @@
 
 package com.tencent.matrix.fdcanary.core;
 
+import com.tencent.matrix.fdcanary.config.FDConfig;
+
 import java.util.List;
 
 public class FDDumpInfo implements FDInfo{
 
+    //JNI Data
     //数量
     public int totalFD;
     //最大下标
@@ -53,6 +56,26 @@ public class FDDumpInfo implements FDInfo{
         this.processName = processName;
         this.subDetails = subDetails;
     }
+
+    //JAVA Data
+    /**
+     * duration超时警告
+     * 默认数据{@link FDConfig#getDefaultDumpDurationTimeoutWarning()}
+     *
+     */
+    public boolean isDurationTimeOutWarning = false;
+
+    /**
+     * fd数量警告
+     * 默认数据{@link FDConfig#getDefaultDumpFdCountWarning()}
+     */
+    public boolean isFDCountWarning= false;
+
+    /**
+     * fd数量稀疏程度警告
+     * 默认数据{@link FDConfig#getDefaultDumpFdSparseDegreeWarning()} ()}
+     */
+    public boolean isFDCountSparseDegreeWarning = false;
 
     public static final class FDSubDetail {
 

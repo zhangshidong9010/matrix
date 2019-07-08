@@ -21,11 +21,23 @@ import com.tencent.mrs.plugin.IDynamicConfig;
 public final class FDConfig {
     private static final String TAG = "Matrix.FDConfig";
 
-    private static final int DEFAULT_DUMP_TIMER_COUNT_PER_DAY = 3;
+    //一天dump次数
+    private static final int DEFAULT_DUMP_TIMER_COUNT_PER_DAY = 8;
 
+    //每次dump时间间隔
     private static final int DEFAULT_DUMP_TIMER_INTERVAL = 24 * 60 * 60 * 1000 / DEFAULT_DUMP_TIMER_COUNT_PER_DAY;
 
+    //检查一次时间
     private static final int DEFAULT_DUMP_TIMER_LOOPER_CHECK_INTERVAL = 10 * 60 * 1000;
+
+    //dump超时警告
+    private static final int DEFAULT_DUMP_DURATION_TIMEOUT_WARNING = 10;
+
+    //fd数量临界值警告
+    private static final int DEFAULT_DUMP_FD_COUNT_WARNING = 800;
+
+    //fd稀疏程度警告
+    private static final int DEFAULT_DUMP_FD_SPARSE_DEGREE_WARNING = 100;
 
 
 
@@ -52,7 +64,21 @@ public final class FDConfig {
     public int getDefaultDumpCheckInterval() {
         return mDynamicConfig.get(IDynamicConfig.ExptEnum.clicfg_matrix_fd_dump_timer_looper_check_interval.name(),
                 DEFAULT_DUMP_TIMER_LOOPER_CHECK_INTERVAL);
+    }
 
+    public int getDefaultDumpDurationTimeoutWarning() {
+        return mDynamicConfig.get(IDynamicConfig.ExptEnum.clicfg_matrix_fd_dump_duration_timeout_warning.name(),
+                DEFAULT_DUMP_DURATION_TIMEOUT_WARNING);
+    }
+
+    public int getDefaultDumpFdCountWarning() {
+        return mDynamicConfig.get(IDynamicConfig.ExptEnum.clicfg_matrix_fd_dump_fd_count_warning.name(),
+                DEFAULT_DUMP_FD_COUNT_WARNING);
+    }
+
+    public int getDefaultDumpFdSparseDegreeWarning() {
+        return mDynamicConfig.get(IDynamicConfig.ExptEnum.clicfg_matrix_fd_dump_fd_sparse_degree.name(),
+                DEFAULT_DUMP_FD_SPARSE_DEGREE_WARNING);
     }
 
     public static final class Builder {

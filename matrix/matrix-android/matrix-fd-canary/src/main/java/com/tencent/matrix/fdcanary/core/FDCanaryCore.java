@@ -7,7 +7,6 @@ import com.tencent.matrix.fdcanary.config.FDConfig;
 import com.tencent.matrix.fdcanary.util.FDCanaryUtil;
 import com.tencent.matrix.report.Issue;
 import com.tencent.matrix.report.IssuePublisher;
-import com.tencent.matrix.util.MatrixUtil;
 
 import java.util.List;
 
@@ -74,6 +73,7 @@ public class FDCanaryCore implements OnJniIssuePublishListener, IssuePublisher.O
             Log.e(TAG, "OnFDInfoDumpPublish error fdInfo is null");
             return;
         }
+        FDCanaryUtil.processingJNIFDDumpInfo(mFDConfig, fdInfo);
         mFDCanaryPlugin.onDetectIssue(FDCanaryUtil.convertFDDumpInfoToReportIssue(fdInfo));
     }
 }

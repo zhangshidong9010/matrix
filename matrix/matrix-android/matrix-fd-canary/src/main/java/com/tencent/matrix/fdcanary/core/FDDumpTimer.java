@@ -29,7 +29,8 @@ public class FDDumpTimer {
     //timer已经dump的次数
     private static final String KEY_DUMP_TIMER_TODAY_COUNT = "KEY_DUMP_TIMER_TODAY_COUNT";
 
-    private final int TIMER_MESSAGE = 1;
+    private final int MESSAGE_INTERVAL = 1000;
+    private final int MESSAGE_START_UP = 1001;
 
     private boolean isStart;
 
@@ -47,8 +48,8 @@ public class FDDumpTimer {
     FDDumpTimer(Context context, FDConfig config) {
         this.config = config;
         this.context = context;
-        this.sharedPreferences = context.getSharedPreferences(TAG + MatrixUtil.getProcessName(context), Context.MODE_PRIVATE);
         this.calendar = Calendar.getInstance();
+        this.sharedPreferences = context.getSharedPreferences(TAG + MatrixUtil.getProcessName(context), Context.MODE_PRIVATE);
     }
 
 
@@ -57,7 +58,6 @@ public class FDDumpTimer {
             return;
         }
 
-        dumpFDInfo(FDDumpInfo.FDDumpStrategyConstants.START_UP);
 
         MatrixLog.d(TAG, "start");
         final int interval = config.getDefaultDumpCheckInterval();
@@ -67,18 +67,25 @@ public class FDDumpTimer {
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
                 switch (msg.what) {
-                    case 1:
-                        removeMessages(TIMER_MESSAGE);
-                        sendEmptyMessageDelayed(TIMER_MESSAGE, interval);
+                    case MESSAGE_INTERVAL: {
+                        removeMessages(MESSAGE_INTERVAL);
+                        sendEmptyMessageDelayed(MESSAGE_INTERVAL, interval);
                         if (checkCanDump()) {
                             dumpFDInfo(FDDumpInfo.FDDumpStrategyConstants.TIMER);
                         }
                         break;
+                    }
+
+                    case MESSAGE_START_UP: {
+                        removeMessages(MESSAGE_START_UP);
+                        dumpFDInfo(FDDumpInfo.FDDumpStrategyConstants.START_UP);
+                    }
                 }
             }
         };
 
-        handler.sendEmptyMessage(TIMER_MESSAGE);
+        handler.sendEmptyMessage(MESSAGE_INTERVAL);
+        handler.sendEmptyMessageDelayed(MESSAGE_START_UP, 10 * 1000);
 
         isStart = true;
     }
@@ -86,7 +93,8 @@ public class FDDumpTimer {
 
     public void stop() {
         MatrixLog.d(TAG, "stop");
-        handler.removeMessages(TIMER_MESSAGE);
+        handler.removeMessages(MESSAGE_INTERVAL);
+        handler.removeMessages(MESSAGE_START_UP);
         handlerThread.quitSafely();
 
         handlerThread = null;
