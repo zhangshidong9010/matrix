@@ -77,6 +77,19 @@ public class FDDumpInfo implements FDInfo{
      */
     public boolean isFDCountSparseDegreeWarning = false;
 
+    /**
+     * 具体类型fd数量警告
+     * 默认数据{@link FDConfig#getDefaultDumpFdSubDetailFdCountWarning()}
+     */
+    public boolean isSubDetailFDCountWarning = false;
+
+    /**
+     * 具体类型警告数据
+     */
+    public List<FDSubDetail> subDetailsWarningList;
+
+
+
     public static final class FDSubDetail {
 
         //fd类型

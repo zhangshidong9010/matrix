@@ -39,6 +39,9 @@ public final class FDConfig {
     //fd稀疏程度警告
     private static final int DEFAULT_DUMP_FD_SPARSE_DEGREE_WARNING = 100;
 
+    //某类具体fd数量临界值警告
+    private static final int DEFAULT_DUMP_FD_SUB_DETAIL_FD_COUNT_WARNING = 200;
+
 
 
     private final IDynamicConfig mDynamicConfig;
@@ -79,6 +82,11 @@ public final class FDConfig {
     public int getDefaultDumpFdSparseDegreeWarning() {
         return mDynamicConfig.get(IDynamicConfig.ExptEnum.clicfg_matrix_fd_dump_fd_sparse_degree.name(),
                 DEFAULT_DUMP_FD_SPARSE_DEGREE_WARNING);
+    }
+
+    public int getDefaultDumpFdSubDetailFdCountWarning() {
+        return mDynamicConfig.get(IDynamicConfig.ExptEnum.clicfg_matrix_fd_dump_sub_detail_fd_count_warning.name(),
+                DEFAULT_DUMP_FD_SUB_DETAIL_FD_COUNT_WARNING);
     }
 
     public static final class Builder {

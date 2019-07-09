@@ -89,6 +89,7 @@ public interface IDynamicConfig {
         clicfg_matrix_fd_dump_duration_timeout_warning,
         clicfg_matrix_fd_dump_fd_count_warning,
         clicfg_matrix_fd_dump_fd_sparse_degree,
+        clicfg_matrix_fd_dump_sub_detail_fd_count_warning,
 
 
     }

@@ -143,8 +143,6 @@ public final class FDCanaryUtil {
             return;
         }
 
-
-
         FDDumpInfo info = (FDDumpInfo)fdInfo;
 
         if (info.duration >= config.getDefaultDumpDurationTimeoutWarning()) {
@@ -157,6 +155,22 @@ public final class FDCanaryUtil {
 
         if (Math.abs(info.totalFD - info.maxFD) >= config.getDefaultDumpFdSparseDegreeWarning()) {
             info.isFDCountSparseDegreeWarning = true;
+        }
+
+
+        if (info.subDetails == null || info.subDetails.size() == 0) return;
+        int subDetailCountWarning = config.getDefaultDumpFdSubDetailFdCountWarning();
+
+        for (FDDumpInfo.FDSubDetail detail : info.subDetails) {
+            if (detail.count >= subDetailCountWarning) {
+
+                info.isSubDetailFDCountWarning = true;
+
+                if (info.subDetailsWarningList == null) {
+                    info.subDetailsWarningList = new ArrayList<>();
+                }
+                info.subDetailsWarningList.add(detail);
+            }
         }
 
     }
