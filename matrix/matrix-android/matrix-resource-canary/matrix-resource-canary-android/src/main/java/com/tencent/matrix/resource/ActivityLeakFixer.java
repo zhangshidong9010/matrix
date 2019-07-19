@@ -166,13 +166,17 @@ public final class ActivityLeakFixer {
         }
 
         try {
+            final boolean origClickableState = view.isClickable();
             view.setOnClickListener(null);
+            view.setClickable(origClickableState);
         } catch (Throwable ignored) {
             // Ignored.
         }
 
         try {
+            final boolean origLongClickableState = view.isLongClickable();
             view.setOnCreateContextMenuListener(null);
+            view.setLongClickable(origLongClickableState);
         } catch (Throwable ignored) {
             // Ignored.
         }
@@ -190,13 +194,9 @@ public final class ActivityLeakFixer {
         }
 
         try {
+            final boolean origLongClickableState = view.isLongClickable();
             view.setOnLongClickListener(null);
-        } catch (Throwable ignored) {
-            // Ignored.
-        }
-
-        try {
-            view.setOnClickListener(null);
+            view.setLongClickable(origLongClickableState);
         } catch (Throwable ignored) {
             // Ignored.
         }
