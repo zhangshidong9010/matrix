@@ -356,6 +356,14 @@ public class AppMethodBeat implements BeatLifecycle {
             if (indexRecord.index == index || (indexRecord.index == -1 && sLastIndex == Constants.BUFFER_SIZE - 1)) {
                 indexRecord.isValid = false;
                 MatrixLog.w(TAG, "[checkPileup] %s", indexRecord.toString());
+                StringBuilder ss = new StringBuilder();
+                for (int i = 1000; i >= 0; i--) {
+                    int current = index - i;
+                    if (current >= 0) {
+                        ss.append(getMethodId(sBuffer[current])).append(',');
+                    }
+                }
+                MatrixLog.i(TAG, "[checkPileup] " + ss.toString());
                 sIndexRecordHead = indexRecord = indexRecord.next;
             } else {
                 break;
@@ -448,6 +456,10 @@ public class AppMethodBeat implements BeatLifecycle {
             record = record.next;
         }
         MatrixLog.i(TAG, "[printIndexRecord] %s", ss.toString());
+    }
+
+    private static int getMethodId(long trueId) {
+        return (int) ((trueId >> 43) & 0xFFFFFL);
     }
 
 }
