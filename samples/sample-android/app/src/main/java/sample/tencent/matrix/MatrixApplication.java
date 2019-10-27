@@ -17,7 +17,9 @@
 package sample.tencent.matrix;
 
 import android.app.Application;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.os.HandlerThread;
 
 import com.tencent.matrix.Matrix;
@@ -41,6 +43,7 @@ import com.tencent.sqlitelint.config.SQLiteLintConfig;
 
 import sample.tencent.matrix.config.DynamicConfigImplDemo;
 import sample.tencent.matrix.listener.TestPluginListener;
+import sample.tencent.matrix.resource.ManualDumpActivity;
 
 /**
  * Created by caichongyang on 17/5/18.
@@ -90,11 +93,13 @@ public class MatrixApplication extends Application {
 
         if (matrixEnable) {
 
+            Intent intent = new Intent(this, ManualDumpActivity.class);
             //resource
             builder.plugin(new ResourcePlugin(new ResourceConfig.Builder()
                     .dynamicConfig(dynamicConfig)
-                    .setDumpHprof(false)
+                    .setAutoDumpHprofMode(ResourceConfig.DumpMode.MANUAL_DUMP)
                     .setDetectDebuger(true)     //only set true when in sample, not in your app
+                    .setNotificationContentIntent(intent)
                     .build()));
             ResourcePlugin.activityLeakFixer(this);
 
@@ -111,7 +116,7 @@ public class MatrixApplication extends Application {
             SQLiteLintPlugin sqLiteLintPlugin = new SQLiteLintPlugin(config);
             builder.plugin(sqLiteLintPlugin);
 
-            ThreadMonitor threadMonitor = new ThreadMonitor(new ThreadMonitorConfig.Builder().dynamicConfig(dynamicConfig).build());
+            ThreadMonitor threadMonitor = new ThreadMonitor(new ThreadMonitorConfig.Builder().build());
             builder.plugin(threadMonitor);
 
             BatteryMonitor batteryMonitor = new BatteryMonitor(new BatteryMonitor.Builder()

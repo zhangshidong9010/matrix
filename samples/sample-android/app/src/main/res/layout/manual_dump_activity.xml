@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Leak Activity："
+            android:textColor="@android:color/darker_gray"
+            android:textSize="17dp" />
+        <TextView
+            android:id="@+id/leak_activity_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@android:color/black"
+            android:textSize="17dp"
+            tools:text="leak_activity_name" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Reference："
+            android:textColor="@android:color/darker_gray"
+            android:textSize="17dp" />
+
+        <TextView
+            android:id="@+id/leak_activity_ref"
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            android:layout_marginTop="4dp"
+            android:layout_weight="1"
+            android:textColor="@android:color/black"
+            android:textSize="14dp"
+            tools:text="..." />
+
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="66dp"
+            android:layout_marginTop="20dp"
+            android:background="@android:color/holo_green_dark"
+            android:onClick="onClick"
+            android:text="@string/dump_hprof_and_analyse"
+            android:textColor="@android:color/white"
+            android:textSize="17dp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -20,3 +20,10 @@ allprojects {
         google()
     }
 }
+
+ext {
+    minSdkVersion = 19
+    compileSdkVersion = 28
+    targetSdkVersion = compileSdkVersion
+    buildToolsVersion = "28.0.2"
+}
