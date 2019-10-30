@@ -292,6 +292,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
                 if (null != activityLeakCallback) {
                     if (activityLeakCallback.onLeak(destroyedActivityInfo.mActivityName, destroyedActivityInfo.mKey)) {
                         markPublished(destroyedActivityInfo.mActivityName);
+                        infoIt.remove();
                     }
                     return Status.RETRY;
                 }
