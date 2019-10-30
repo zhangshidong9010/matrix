@@ -91,7 +91,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
     }
 
     public interface IActivityLeakCallback {
-        void onLeak(String activity);
+        boolean onLeak(String activity);
     }
 
     public static class ComponentFactory {
@@ -148,7 +148,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
             MatrixLog.i(TAG, "we are in foreground, start watcher task.");
             mDetectExecutor.executeInBackground(mScanDestroyedActivitiesTask);
         } else {
-            if(!isTest) {
+            if (!isTest) {
                 MatrixLog.i(TAG, "we are in background, stop watcher task.");
                 mDetectExecutor.clearTasks();
             }
@@ -290,7 +290,10 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
                 }
 
                 if (null != activityLeakCallback) {
-                    activityLeakCallback.onLeak(destroyedActivityInfo.mActivityName);
+                    if (activityLeakCallback.onLeak(destroyedActivityInfo.mActivityName)) {
+                        markPublished(destroyedActivityInfo.mActivityName);
+                    }
+                    return Status.RETRY;
                 }
 
                 MatrixLog.i(TAG, "activity with key [%s] was suspected to be a leaked instance.", destroyedActivityInfo.mKey);
