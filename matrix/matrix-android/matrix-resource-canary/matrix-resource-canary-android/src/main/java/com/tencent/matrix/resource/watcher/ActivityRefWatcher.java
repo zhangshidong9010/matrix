@@ -84,6 +84,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
     private IActivityLeakCallback activityLeakCallback = null;
     private Intent mContentIntent;
     private final static int NOTIFICATION_ID = 0x110;
+    public static boolean isTest = false;
 
     public void setActivityLeakCallback(IActivityLeakCallback activityLeakCallback) {
         this.activityLeakCallback = activityLeakCallback;
@@ -147,8 +148,10 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
             MatrixLog.i(TAG, "we are in foreground, start watcher task.");
             mDetectExecutor.executeInBackground(mScanDestroyedActivitiesTask);
         } else {
-            MatrixLog.i(TAG, "we are in background, stop watcher task.");
-            mDetectExecutor.clearTasks();
+            if(!isTest) {
+                MatrixLog.i(TAG, "we are in background, stop watcher task.");
+                mDetectExecutor.clearTasks();
+            }
         }
     }
 
@@ -176,8 +179,10 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
 
     @Override
     public void stop() {
-        stopDetect();
-        MatrixLog.i(TAG, "watcher is stopped.");
+        if(!isTest) {
+            stopDetect();
+            MatrixLog.i(TAG, "watcher is stopped.");
+        }
     }
 
     private void stopDetect() {
