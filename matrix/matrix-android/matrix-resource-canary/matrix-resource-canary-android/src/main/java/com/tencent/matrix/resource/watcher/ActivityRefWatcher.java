@@ -91,7 +91,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
     }
 
     public interface IActivityLeakCallback {
-        boolean onLeak(String activity);
+        boolean onLeak(String activity, String refKey);
     }
 
     public static class ComponentFactory {
@@ -290,7 +290,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
                 }
 
                 if (null != activityLeakCallback) {
-                    if (activityLeakCallback.onLeak(destroyedActivityInfo.mActivityName)) {
+                    if (activityLeakCallback.onLeak(destroyedActivityInfo.mActivityName, destroyedActivityInfo.mKey)) {
                         markPublished(destroyedActivityInfo.mActivityName);
                     }
                     return Status.RETRY;
