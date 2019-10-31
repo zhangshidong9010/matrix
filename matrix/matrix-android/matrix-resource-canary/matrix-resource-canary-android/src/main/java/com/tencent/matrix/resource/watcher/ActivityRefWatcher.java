@@ -146,6 +146,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
     public void onForeground(boolean isForeground) {
         if (isForeground) {
             MatrixLog.i(TAG, "we are in foreground, start watcher task.");
+            mDetectExecutor.clearTasks();
             mDetectExecutor.executeInBackground(mScanDestroyedActivitiesTask);
         } else {
             if (!isTest) {
