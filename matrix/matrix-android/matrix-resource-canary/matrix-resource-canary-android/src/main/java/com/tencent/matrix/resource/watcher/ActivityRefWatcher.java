@@ -126,7 +126,7 @@ public class ActivityRefWatcher extends FilePublisher implements Watcher, IAppFo
     private ActivityRefWatcher(Application app,
                                ResourcePlugin resourcePlugin,
                                ComponentFactory componentFactory) {
-        super(app, FILE_CONFIG_EXPIRED_TIME, resourcePlugin.getTag(), resourcePlugin);
+        super(app, 0, resourcePlugin.getTag(), resourcePlugin);
         this.mResourcePlugin = resourcePlugin;
         final ResourceConfig config = resourcePlugin.getConfig();
         final Context context = app;
