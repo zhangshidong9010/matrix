@@ -18,6 +18,8 @@ package com.tencent.matrix.plugin;
 
 import android.app.Application;
 
+import com.tencent.matrix.report.IIDKeyReportListener;
+
 /**
  * Created by zhangshaowen on 17/5/17.
  */
@@ -26,7 +28,7 @@ public interface IPlugin {
 
     Application getApplication();
 
-    void init(Application application, PluginListener pluginListener);
+    void init(Application application, PluginListener pluginListener, IIDKeyReportListener idKeyReport);
 
     void start();
 

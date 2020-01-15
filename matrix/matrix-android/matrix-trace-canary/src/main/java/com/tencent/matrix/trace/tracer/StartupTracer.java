@@ -291,7 +291,7 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
 
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
-        MatrixLog.i(TAG, "activeActivityCount:%d, coldCost:%d", activeActivityCount, coldCost);
+        MatrixLog.i(TAG, "++activeActivityCount:%d, coldCost:%d", activeActivityCount, coldCost);
         if (activeActivityCount == 0 && coldCost > 0) {
             isWarmStartUp = true;
         }
@@ -300,7 +300,7 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
 
     @Override
     public void onActivityDestroyed(Activity activity) {
-        MatrixLog.i(TAG, "activeActivityCount:%d", activeActivityCount);
+        MatrixLog.i(TAG, "(--)activeActivityCount:%d， ", activeActivityCount);
         activeActivityCount--;
     }
 

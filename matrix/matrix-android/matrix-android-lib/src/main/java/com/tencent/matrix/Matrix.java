@@ -19,6 +19,8 @@ package com.tencent.matrix;
 import android.app.Application;
 
 import com.tencent.matrix.plugin.DefaultPluginListener;
+import com.tencent.matrix.report.IIDKeyReportListener;
+import com.tencent.matrix.report.DefaultIDKeyReportListener;
 import com.tencent.matrix.plugin.Plugin;
 import com.tencent.matrix.plugin.PluginListener;
 import com.tencent.matrix.util.MatrixLog;
@@ -38,14 +40,16 @@ public class Matrix {
     private final HashSet<Plugin> plugins;
     private final Application application;
     private final PluginListener pluginListener;
+    private final IIDKeyReportListener idKeyReportListener;
 
-    private Matrix(Application app, PluginListener listener, HashSet<Plugin> plugins) {
+    private Matrix(Application app, PluginListener listener, IIDKeyReportListener reportListener, HashSet<Plugin> plugins) {
         this.application = app;
         this.pluginListener = listener;
+        this.idKeyReportListener = reportListener;
         this.plugins = plugins;
         AppActiveMatrixDelegate.INSTANCE.init(application);
         for (Plugin plugin : plugins) {
-            plugin.init(application, pluginListener);
+            plugin.init(application, pluginListener, idKeyReportListener);
             pluginListener.onInit(plugin);
         }
 
@@ -128,6 +132,7 @@ public class Matrix {
     public static class Builder {
         private final Application application;
         private PluginListener pluginListener;
+        private IIDKeyReportListener idKeyReportListener;
 
         private HashSet<Plugin> plugins = new HashSet<>();
 
@@ -154,11 +159,20 @@ public class Matrix {
             return this;
         }
 
+        public Builder initReportListener(IIDKeyReportListener reportListener) {
+            this.idKeyReportListener = reportListener;
+        }
+
         public Matrix build() {
             if (pluginListener == null) {
                 pluginListener = new DefaultPluginListener(application);
             }
-            return new Matrix(application, pluginListener, plugins);
+
+            if (null == idKeyReportListener) {
+                idKeyReportListener = new DefaultIDKeyReportListener();
+            }
+
+            return new Matrix(application, pluginListener, idKeyReportListener, plugins);
         }
 
     }

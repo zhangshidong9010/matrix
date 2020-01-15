@@ -24,6 +24,7 @@ import com.tencent.matrix.iocanary.core.IOCanaryCore;
 import com.tencent.matrix.iocanary.util.IOCanaryUtil;
 import com.tencent.matrix.plugin.Plugin;
 import com.tencent.matrix.plugin.PluginListener;
+import com.tencent.matrix.report.IIDKeyReportListener;
 
 /**
  * Core logic for hookers, detectors and reporter
@@ -50,8 +51,8 @@ public class IOCanaryPlugin extends Plugin {
     }
 
     @Override
-    public void init(Application app, PluginListener listener) {
-        super.init(app, listener);
+    public void init(Application app, PluginListener listener, IIDKeyReportListener reportListener) {
+        super.init(app, listener, reportListener);
         IOCanaryUtil.setPackageName(app);
         mCore = new IOCanaryCore(this);
     }

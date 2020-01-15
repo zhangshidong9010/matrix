@@ -20,6 +20,7 @@ import android.app.Application;
 
 import com.tencent.matrix.AppActiveMatrixDelegate;
 import com.tencent.matrix.listeners.IAppForeground;
+import com.tencent.matrix.report.IIDKeyReportListener;
 import com.tencent.matrix.report.Issue;
 import com.tencent.matrix.report.IssuePublisher;
 import com.tencent.matrix.util.MatrixLog;
@@ -42,6 +43,7 @@ public abstract class Plugin implements IPlugin, IssuePublisher.OnIssueDetectLis
     public static final int PLUGIN_DESTROYED = 0x08;
 
     private PluginListener pluginListener;
+    private IIDKeyReportListener idkeyReportListener;
     private Application application;
 
     private boolean isSupported = true;
@@ -49,13 +51,15 @@ public abstract class Plugin implements IPlugin, IssuePublisher.OnIssueDetectLis
     private int status = PLUGIN_CREATE;
 
     @Override
-    public void init(Application app, PluginListener listener) {
-        if (application != null || pluginListener != null) {
-            throw new RuntimeException("plugin duplicate init, application or plugin listener is not null");
+    public void init(Application app, PluginListener listener, IIDKeyReportListener reportListener) {
+        if (application != null || pluginListener != null || null != reportListener) {
+            throw new RuntimeException("plugin duplicate init, application or plugin listener or id-key report listener is not null");
         }
         status = PLUGIN_INITED;
         this.application = app;
         this.pluginListener = listener;
+        this.idkeyReportListener = reportListener;
+
         AppActiveMatrixDelegate.INSTANCE.addListener(this);
     }
 

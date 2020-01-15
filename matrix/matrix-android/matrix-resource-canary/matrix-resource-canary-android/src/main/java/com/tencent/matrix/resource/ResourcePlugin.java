@@ -22,6 +22,7 @@ import android.os.Build;
 
 import com.tencent.matrix.plugin.Plugin;
 import com.tencent.matrix.plugin.PluginListener;
+import com.tencent.matrix.report.IIDKeyReportListener;
 import com.tencent.matrix.resource.config.ResourceConfig;
 import com.tencent.matrix.resource.config.SharePluginInfo;
 import com.tencent.matrix.resource.watcher.ActivityLifeCycleCallbacksAdapter;
@@ -58,8 +59,8 @@ public class ResourcePlugin extends Plugin {
     }
 
     @Override
-    public void init(Application app, PluginListener listener) {
-        super.init(app, listener);
+    public void init(Application app, PluginListener listener, IIDKeyReportListener reportListener) {
+        super.init(app, listener, reportListener);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             MatrixLog.e(TAG, "API is low Build.VERSION_CODES.ICE_CREAM_SANDWICH(14), ResourcePlugin is not supported");
             unSupportPlugin();
