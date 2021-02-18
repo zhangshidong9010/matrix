@@ -61,9 +61,9 @@ public class ActivityThreadHacker {
 
     public static void hackSysHandlerCallback() {
         try {
-            sApplicationCreateBeginTime = SystemClock.uptimeMillis();
-            sApplicationCreateBeginMethodIndex = AppMethodBeat.getInstance().maskIndex("ApplicationCreateBeginMethodIndex");
-            Class<?> forName = Class.forName("android.app.ActivityThread");
+            sApplicationCreateBeginTime = SystemClock.uptimeMillis();//当前方法加载的时间 被认为是 APP启动时间，
+            sApplicationCreateBeginMethodIndex = AppMethodBeat.getInstance().maskIndex("ApplicationCreateBeginMethodIndex");//记录这第一个方法，
+            Class<?> forName = Class.forName("android.app.ActivityThread");//替换 ActivityThread 中handler的 callBack 方法
             Field field = forName.getDeclaredField("sCurrentActivityThread");
             field.setAccessible(true);
             Object activityThreadValue = field.get(forName);
@@ -76,7 +76,7 @@ public class ActivityThreadHacker {
                 callbackField.setAccessible(true);
                 Handler.Callback originalCallback = (Handler.Callback) callbackField.get(handler);
                 HackCallback callback = new HackCallback(originalCallback);
-                callbackField.set(handler, callback);
+                callbackField.set(handler, callback);//设置新的callback对象
             }
 
             MatrixLog.i(TAG, "hook system handler completed. start:%s SDK_INT:%s", sApplicationCreateBeginTime, Build.VERSION.SDK_INT);
@@ -120,23 +120,23 @@ public class ActivityThreadHacker {
         public boolean handleMessage(Message msg) {
 
             if (!AppMethodBeat.isRealTrace()) {
-                return null != mOriginalCallback && mOriginalCallback.handleMessage(msg);
+                return null != mOriginalCallback && mOriginalCallback.handleMessage(msg);//将 handleMessage 的控制权交还给 mOriginalCallback
             }
 
-            boolean isLaunchActivity = isLaunchActivity(msg);
+            boolean isLaunchActivity = isLaunchActivity(msg); //是否是打开activity的handler信息
 
             if (hasPrint > 0) {
                 MatrixLog.i(TAG, "[handleMessage] msg.what:%s begin:%s isLaunchActivity:%s", msg.what, SystemClock.uptimeMillis(), isLaunchActivity);
                 hasPrint--;
             }
-            if (isLaunchActivity) {
+            if (isLaunchActivity) {//打开一次activity，就记录一次数据
                 ActivityThreadHacker.sLastLaunchActivityTime = SystemClock.uptimeMillis();
                 ActivityThreadHacker.sLastLaunchActivityMethodIndex = AppMethodBeat.getInstance().maskIndex("LastLaunchActivityMethodIndex");
             }
 
             if (!isCreated) {
-                if (isLaunchActivity || msg.what == CREATE_SERVICE || msg.what == RECEIVER) { // todo for provider
-                    ActivityThreadHacker.sApplicationCreateEndTime = SystemClock.uptimeMillis();
+                if (isLaunchActivity || msg.what == CREATE_SERVICE || msg.what == RECEIVER) { // // 如果是启动activity、service，receiver
+                    ActivityThreadHacker.sApplicationCreateEndTime = SystemClock.uptimeMillis();//发送启动Activity等消息，认为是Application 启动的结束时间
                     ActivityThreadHacker.sApplicationCreateScene = msg.what;
                     isCreated = true;
                     sIsCreatedByLaunchActivity = isLaunchActivity;
@@ -149,7 +149,7 @@ public class ActivityThreadHacker {
                 }
             }
 
-            return null != mOriginalCallback && mOriginalCallback.handleMessage(msg);
+            return null != mOriginalCallback && mOriginalCallback.handleMessage(msg);//将 handleMessage 的控制权交还给 mOriginalCallback
         }
 
         private Method method = null;

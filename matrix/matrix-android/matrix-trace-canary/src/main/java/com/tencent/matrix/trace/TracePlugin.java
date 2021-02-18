@@ -39,7 +39,7 @@ import com.tencent.matrix.util.MatrixLog;
 public class TracePlugin extends Plugin {
     private static final String TAG = "Matrix.TracePlugin";
 
-    private final TraceConfig traceConfig;
+    private final TraceConfig traceConfig;//Trace模块的 配置
     private EvilMethodTracer evilMethodTracer;
     private StartupTracer startupTracer;
     private FrameTracer frameTracer;
@@ -69,7 +69,7 @@ public class TracePlugin extends Plugin {
     }
 
     @Override
-    public void start() {
+    public void start() {//主要是在主线程中启动 UIThreadMonitor,AppMethodBeat还有各个Tracer
         super.start();
         if (!isSupported()) {
             MatrixLog.w(TAG, "[start] Plugin is unSupported!");
@@ -82,16 +82,16 @@ public class TracePlugin extends Plugin {
 
                 if (!UIThreadMonitor.getMonitor().isInit()) {
                     try {
-                        UIThreadMonitor.getMonitor().init(traceConfig);
+                        UIThreadMonitor.getMonitor().init(traceConfig);//初始化 UIThreadMonitor
                     } catch (java.lang.RuntimeException e) {
                         MatrixLog.e(TAG, "[start] RuntimeException:%s", e);
                         return;
                     }
                 }
 
-                AppMethodBeat.getInstance().onStart();
+                AppMethodBeat.getInstance().onStart(); //启动 AppMethodBeat
 
-                UIThreadMonitor.getMonitor().onStart();
+                UIThreadMonitor.getMonitor().onStart();//启动 UIThreadMonitor
 
                 anrTracer.onStartTrace();
 
@@ -107,13 +107,13 @@ public class TracePlugin extends Plugin {
             runnable.run();
         } else {
             MatrixLog.w(TAG, "start TracePlugin in Thread[%s] but not in mainThread!", Thread.currentThread().getId());
-            MatrixHandlerThread.getDefaultMainHandler().post(runnable);
+            MatrixHandlerThread.getDefaultMainHandler().post(runnable);//post到主线程启动
         }
 
     }
 
     @Override
-    public void stop() {
+    public void stop() {//主要是在主线程中停止UIThreadMonitor,AppMethodBeat还有各个Tracer
         super.stop();
         if (!isSupported()) {
             MatrixLog.w(TAG, "[stop] Plugin is unSupported!");
@@ -149,7 +149,7 @@ public class TracePlugin extends Plugin {
     }
 
     @Override
-    public void onForeground(boolean isForeground) {
+    public void onForeground(boolean isForeground) {//将APP处于前台或者后台的状态分发给各个Tracer
         super.onForeground(isForeground);
         if (!isSupported()) {
             return;

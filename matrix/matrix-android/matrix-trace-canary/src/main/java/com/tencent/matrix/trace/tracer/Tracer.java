@@ -25,7 +25,7 @@ public abstract class Tracer extends LooperObserver implements ITracer {
     @Override
     final synchronized public void onStartTrace() {
         if (!isAlive) {
-            this.isAlive = true;
+            this.isAlive = true; //标识当前Tracer是活着的
             onAlive();
         }
     }

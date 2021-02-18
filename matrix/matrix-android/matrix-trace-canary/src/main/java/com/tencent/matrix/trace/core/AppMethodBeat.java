@@ -72,7 +72,7 @@ public class AppMethodBeat implements BeatLifecycle {
     };
 
     static {
-        sHandler.postDelayed(new Runnable() {
+        sHandler.postDelayed(new Runnable() {//在 AppMethodBeat 类加载 15s 后，还没有使用（status的状态还是STATUS_DEFAULT），就清空AppMethodBeat 占用的内存
             @Override
             public void run() {
                 realRelease();
@@ -88,7 +88,7 @@ public class AppMethodBeat implements BeatLifecycle {
         public void run() {
             try {
                 while (true) {
-                    while (!isPauseUpdateTime && status > STATUS_STOPPED) {
+                    while (!isPauseUpdateTime && status > STATUS_STOPPED) {//无限循环  当isPauseUpdateTime=false（dispatchBegin方法完成）,然后更新 sCurrentDiffTime
                         sCurrentDiffTime = SystemClock.uptimeMillis() - sDiffTime;
                         SystemClock.sleep(Constants.TIME_UPDATE_CYCLE_MS);
                     }
@@ -107,15 +107,15 @@ public class AppMethodBeat implements BeatLifecycle {
     }
 
     @Override
-    public void onStart() {
+    public void onStart() {//主要是将AppMethodBeat 的当前状态设置为STATUS_STARTED
         synchronized (statusLock) {
-            if (status < STATUS_STARTED && status >= STATUS_EXPIRED_START) {
-                sHandler.removeCallbacks(checkStartExpiredRunnable);
+            if (status < STATUS_STARTED && status >= STATUS_EXPIRED_START) {//如果没有启动 或者已经过期 则进行启动
+                sHandler.removeCallbacks(checkStartExpiredRunnable);//取消 启动过期 检查的 Runnable
                 if (sBuffer == null) {
                     throw new RuntimeException(TAG + " sBuffer == null");
                 }
                 MatrixLog.i(TAG, "[onStart] preStatus:%s", status, Utils.getStack());
-                status = STATUS_STARTED;
+                status = STATUS_STARTED;//标示已将 启动
             } else {
                 MatrixLog.w(TAG, "[onStart] current status:%s", status);
             }
@@ -123,9 +123,9 @@ public class AppMethodBeat implements BeatLifecycle {
     }
 
     @Override
-    public void onStop() {
+    public void onStop() {//主要是将AppMethodBeat 的当前状态设置为STATUS_STOPPED
         synchronized (statusLock) {
-            if (status == STATUS_STARTED) {
+            if (status == STATUS_STARTED) {//进行关闭
                 MatrixLog.i(TAG, "[onStop] %s", Utils.getStack());
                 status = STATUS_STOPPED;
             } else {
@@ -144,11 +144,11 @@ public class AppMethodBeat implements BeatLifecycle {
         return status >= STATUS_READY;
     }
 
-    private static void realRelease() {
+    private static void realRelease() {//这个方法主要是在 AppMethodBeat 类加载 15s 后，还没有使用的情况下释放各种资源，尤其是sBuffer因为它就占用了7.6M的内存。
         synchronized (statusLock) {
             if (status == STATUS_DEFAULT) {
                 MatrixLog.i(TAG, "[realRelease] timestamp:%s", System.currentTimeMillis());
-                sHandler.removeCallbacksAndMessages(null);
+                sHandler.removeCallbacksAndMessages(null);//移除 looperMonitorListener 监听
                 LooperMonitor.unregister(looperMonitorListener);
                 sTimerUpdateThread.quit();
                 sBuffer = null;
@@ -157,13 +157,17 @@ public class AppMethodBeat implements BeatLifecycle {
         }
     }
 
-    private static void realExecute() {
+    private static void realExecute() {//这个方法只有 在第一次执行 i方法时才会被调用
         MatrixLog.i(TAG, "[realExecute] timestamp:%s", System.currentTimeMillis());
 
-        sCurrentDiffTime = SystemClock.uptimeMillis() - sDiffTime;
+        sCurrentDiffTime = SystemClock.uptimeMillis() - sDiffTime;//当前时间减去上一个 记录的时间 (更新 sCurrentDiffTime)
 
-        sHandler.removeCallbacksAndMessages(null);
-        sHandler.postDelayed(sUpdateDiffTimeRunnable, Constants.TIME_UPDATE_CYCLE_MS);
+        sHandler.removeCallbacksAndMessages(null);//清空 sHandler 所有消息
+        sHandler.postDelayed(sUpdateDiffTimeRunnable, Constants.TIME_UPDATE_CYCLE_MS);//延迟5 ms 后执行 sUpdateDiffTimeRunnable ,开始刷新
+        //延迟15 ms 后执行 checkStartExpiredRunnable (检查 AppMethodBeat 当前状态的 runnable )
+        //也就是 在 realExecute 方法之后后 如果 15ms 内 AppMethodBeat 还没有被启动（onStart）
+        // 就将 AppMethodBeat的状态置为 STATUS_EXPIRED_START（启动过期）
+        // 启动过期 只是一种状态，并不会影响 AppMethodBeat 的运行
         sHandler.postDelayed(checkStartExpiredRunnable = new Runnable() {
             @Override
             public void run() {
@@ -176,8 +180,8 @@ public class AppMethodBeat implements BeatLifecycle {
             }
         }, Constants.DEFAULT_RELEASE_BUFFER_DELAY);
 
-        ActivityThreadHacker.hackSysHandlerCallback();
-        LooperMonitor.register(looperMonitorListener);
+        ActivityThreadHacker.hackSysHandlerCallback();//hook 主线程的 HandlerCallback
+        LooperMonitor.register(looperMonitorListener); //注册 looperMonitorListener 使可以接收到looper分发massage事件
     }
 
     private static void dispatchBegin() {
@@ -198,7 +202,7 @@ public class AppMethodBeat implements BeatLifecycle {
      *
      * @param methodId
      */
-    public static void i(int methodId) {
+    public static void i(int methodId) {//在第一次进入i()的时候会触发调用realExecute()方法进行一些初始化工作，然后调用mergeData()方法保持调用时的methodId和时间到sBuffer中
 
         if (status <= STATUS_STOPPED) {
             return;
@@ -207,22 +211,22 @@ public class AppMethodBeat implements BeatLifecycle {
             return;
         }
 
-        if (status == STATUS_DEFAULT) {
+        if (status == STATUS_DEFAULT) {//第一次执行该方法时 调用 realExecute 方法，并将状态切换为 STATUS_READY
             synchronized (statusLock) {
                 if (status == STATUS_DEFAULT) {
-                    realExecute();
-                    status = STATUS_READY;
+                    realExecute();//当 当前类 没有被启动时 执行该方法
+                    status = STATUS_READY;//切换状态 为 STATUS_READY
                 }
             }
         }
 
         long threadId = Thread.currentThread().getId();
         if (sMethodEnterListener != null) {
-            sMethodEnterListener.enter(methodId, threadId);
+            sMethodEnterListener.enter(methodId, threadId);//执行回调
         }
 
-        if (threadId == sMainThreadId) {
-            if (assertIn) {
+        if (threadId == sMainThreadId) { //如果是主线程
+            if (assertIn) {//i方法被重复执行的 提醒
                 android.util.Log.e(TAG, "ERROR!!! AppMethodBeat.i Recursive calls!!!");
                 return;
             }
@@ -244,10 +248,10 @@ public class AppMethodBeat implements BeatLifecycle {
      * @param methodId
      */
     public static void o(int methodId) {
-        if (status <= STATUS_STOPPED) {
+        if (status <= STATUS_STOPPED) {//对 AppMethodBeat 状态进行检查
             return;
         }
-        if (methodId >= METHOD_ID_MAX) {
+        if (methodId >= METHOD_ID_MAX) {//对 methodId进行校验
             return;
         }
         if (Thread.currentThread().getId() == sMainThreadId) {
@@ -255,7 +259,7 @@ public class AppMethodBeat implements BeatLifecycle {
                 mergeData(methodId, sIndex, false);
             } else {
                 sIndex = 0;
-                mergeData(methodId, sIndex, false);
+                mergeData(methodId, sIndex, false);//存储数据到sBuffer中
             }
             ++sIndex;
         }
@@ -267,19 +271,19 @@ public class AppMethodBeat implements BeatLifecycle {
      * @param activity now at which activity
      * @param isFocus  this window if has focus
      */
-    public static void at(Activity activity, boolean isFocus) {
+    public static void at(Activity activity, boolean isFocus) {//at()方法主要的功能是自己获得的焦点信息分发给每一个IAppMethodBeatListener
         String activityName = activity.getClass().getName();
         if (isFocus) {
-            if (sFocusActivitySet.add(activityName)) {
+            if (sFocusActivitySet.add(activityName)) {//获取焦点的activity 添加到 sFocusActivitySet
                 synchronized (listeners) {
-                    for (IAppMethodBeatListener listener : listeners) {
+                    for (IAppMethodBeatListener listener : listeners) {//广播 activityName 获取到焦点
                         listener.onActivityFocused(activity);
                     }
                 }
                 MatrixLog.i(TAG, "[at] visibleScene[%s] has %s focus!", getVisibleScene(), "attach");
             }
         } else {
-            if (sFocusActivitySet.remove(activityName)) {
+            if (sFocusActivitySet.remove(activityName)) {//失去焦点的activity 从sFocusActivitySet移除
                 MatrixLog.i(TAG, "[at] visibleScene[%s] has %s focus!", getVisibleScene(), "detach");
             }
         }
@@ -291,7 +295,7 @@ public class AppMethodBeat implements BeatLifecycle {
 
     /**
      * merge trace info as a long data
-     *
+     * mergeData其实就做了一件事，就是将方法类型（i或o），methodId,sCurrentDiffTime存到sBuffer中的index位置
      * @param methodId
      * @param index
      * @param isIn
@@ -301,11 +305,11 @@ public class AppMethodBeat implements BeatLifecycle {
             sCurrentDiffTime = SystemClock.uptimeMillis() - sDiffTime;
         }
         long trueId = 0L;
-        if (isIn) {
+        if (isIn) {//如果是 i 方法 则第63位上是1，否则为0 （就是一个标志位）
             trueId |= 1L << 63;
         }
-        trueId |= (long) methodId << 43;
-        trueId |= sCurrentDiffTime & 0x7FFFFFFFFFFL;
+        trueId |= (long) methodId << 43;//43-62位 存储 methodId
+        trueId |= sCurrentDiffTime & 0x7FFFFFFFFFFL;//0-42位存储 sCurrentDiffTime
         sBuffer[index] = trueId;
         checkPileup(index);
         sLastIndex = index;
@@ -409,7 +413,7 @@ public class AppMethodBeat implements BeatLifecycle {
         }
     }
 
-    public long[] copyData(IndexRecord startRecord) {
+    public long[] copyData(IndexRecord startRecord) {//获取从 startRecord 到结束的 所有 IndexRecord
         return copyData(startRecord, new IndexRecord(sIndex - 1));
     }
 
@@ -422,7 +426,7 @@ public class AppMethodBeat implements BeatLifecycle {
                 int start = Math.max(0, startRecord.index);
                 int end = Math.max(0, endRecord.index);
 
-                if (end > start) {
+                if (end > start) { //计算出copy区域的长度和copy
                     length = end - start + 1;
                     data = new long[length];
                     System.arraycopy(sBuffer, start, data, 0, length);

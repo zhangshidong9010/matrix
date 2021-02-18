@@ -25,6 +25,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.Executor;
 
+/**
+ scene：当前可见的activity
+ dropLevel：记录各个卡段级别出现的次数，卡顿级别可分为DROPPED_FROZEN,DROPPED_HIGH,DROPPED_MIDDLE,DROPPED_NORMAL,DROPPED_BEST;例：
+ "DROPPED_MIDDLE":18，表示时间阈值内共有 18此时 DROPPED_MIDDLE的情况
+ dropSum：记录各个卡段级别掉帧总数，例：
+ "DROPPED_MIDDLE":218, 表示时间阈值内共有 218帧是 位于 DROPPED_MIDDLE
+ fps：时间阈值内的平均帧率
+ dropTaskFrameSum：不太清楚
+ */
 public class FrameTracer extends Tracer {
 
     private static final String TAG = "Matrix.FrameTracer";
@@ -42,13 +51,13 @@ public class FrameTracer extends Tracer {
 
     public FrameTracer(TraceConfig config) {
         this.config = config;
-        this.frameIntervalNs = UIThreadMonitor.getMonitor().getFrameIntervalNanos();
-        this.timeSliceMs = config.getTimeSliceMs();
-        this.isFPSEnable = config.isFPSEnable();
-        this.frozenThreshold = config.getFrozenThreshold();
-        this.highThreshold = config.getHighThreshold();
-        this.normalThreshold = config.getNormalThreshold();
-        this.middleThreshold = config.getMiddleThreshold();
+        this.frameIntervalNs = UIThreadMonitor.getMonitor().getFrameIntervalNanos();//每帧间隔时间 一般就是16.7
+        this.timeSliceMs = config.getTimeSliceMs();//fps 的上报时间阈值
+        this.isFPSEnable = config.isFPSEnable();//FPS 监控是否开启
+        this.frozenThreshold = config.getFrozenThreshold();//一秒钟 掉帧 42帧 为 FROZEN
+        this.highThreshold = config.getHighThreshold();//一秒钟 掉帧 24帧 为 HIGH
+        this.normalThreshold = config.getNormalThreshold();//一秒钟 掉帧 3帧 为 NORMAL
+        this.middleThreshold = config.getMiddleThreshold();//一秒钟 掉帧 9帧 为 MIDDLE
 
         MatrixLog.i(TAG, "[init] frameIntervalMs:%s isFPSEnable:%s", frameIntervalNs, isFPSEnable);
         if (isFPSEnable) {
@@ -96,11 +105,11 @@ public class FrameTracer extends Tracer {
     }
 
     private void notifyListener(final String focusedActivity, final long startNs, final long endNs, final boolean isVsyncFrame,
-                                final long intendedFrameTimeNs, final long inputCostNs, final long animationCostNs, final long traversalCostNs) {
+                                final long intendedFrameTimeNs, final long inputCostNs, final long animationCostNs, final long traversalCostNs) {//notifyListener就是计算出当前事件（任务）消耗的帧数（事件总耗时/每帧间隔）然后将这些数据通过同步或者异步的方式传递给各个IDoFrameListener
         long traceBegin = System.currentTimeMillis();
         try {
             final long jiter = endNs - intendedFrameTimeNs;
-            final int dropFrame = (int) (jiter / frameIntervalNs);
+            final int dropFrame = (int) (jiter / frameIntervalNs);//当前事件 消耗的帧数
             droppedSum += dropFrame;
             durationSum += Math.max(jiter, frameIntervalNs);
 
@@ -140,7 +149,6 @@ public class FrameTracer extends Tracer {
             }
         }
     }
-
 
     private class FPSCollector extends IDoFrameListener {
 
@@ -209,11 +217,11 @@ public class FrameTracer extends Tracer {
             this.visibleScene = visibleScene;
         }
 
-        void collect(int droppedFrames) {
+        void collect(int droppedFrames) {//计算并记录当前页面一段时间内累积的执行任务时间，使用帧数，并对使用帧数进行分级记录和记录在dropLevel和dropSum中
             float frameIntervalCost = 1f * UIThreadMonitor.getMonitor().getFrameIntervalNanos() / Constants.TIME_MILLIS_TO_NANO;
-            sumFrameCost += (droppedFrames + 1) * frameIntervalCost;
-            sumDroppedFrames += droppedFrames;
-            sumFrame++;
+            sumFrameCost += (droppedFrames + 1) * frameIntervalCost;//积累的 总时间 ms值 ,这里不够一帧当一帧计算
+            sumDroppedFrames += droppedFrames;//下降的总帧数
+            sumFrame++;//doFrameAsync 回调次数
             if (droppedFrames >= frozenThreshold) {
                 dropLevel[DropStatus.DROPPED_FROZEN.index]++;
                 dropSum[DropStatus.DROPPED_FROZEN.index] += droppedFrames;
@@ -232,8 +240,8 @@ public class FrameTracer extends Tracer {
             }
         }
 
-        void report() {
-            float fps = Math.min(60.f, 1000.f * sumFrame / sumFrameCost);
+        void report() {//这个方法中会计算出 具体的FPS值，并组建成Json通过TracePlugin进行上报。
+            float fps = Math.min(60.f, 1000.f * sumFrame / sumFrameCost);//计算 fps 一秒内的平均帧率
             MatrixLog.i(TAG, "[report] FPS:%s %s", fps, toString());
 
             try {
@@ -241,14 +249,14 @@ public class FrameTracer extends Tracer {
                 if (null == plugin) {
                     return;
                 }
-                JSONObject dropLevelObject = new JSONObject();
+                JSONObject dropLevelObject = new JSONObject();//记录卡顿级别，及其出现的次数
                 dropLevelObject.put(DropStatus.DROPPED_FROZEN.name(), dropLevel[DropStatus.DROPPED_FROZEN.index]);
                 dropLevelObject.put(DropStatus.DROPPED_HIGH.name(), dropLevel[DropStatus.DROPPED_HIGH.index]);
                 dropLevelObject.put(DropStatus.DROPPED_MIDDLE.name(), dropLevel[DropStatus.DROPPED_MIDDLE.index]);
                 dropLevelObject.put(DropStatus.DROPPED_NORMAL.name(), dropLevel[DropStatus.DROPPED_NORMAL.index]);
                 dropLevelObject.put(DropStatus.DROPPED_BEST.name(), dropLevel[DropStatus.DROPPED_BEST.index]);
 
-                JSONObject dropSumObject = new JSONObject();
+                JSONObject dropSumObject = new JSONObject();//记录卡顿级别，及掉帧总次数
                 dropSumObject.put(DropStatus.DROPPED_FROZEN.name(), dropSum[DropStatus.DROPPED_FROZEN.index]);
                 dropSumObject.put(DropStatus.DROPPED_HIGH.name(), dropSum[DropStatus.DROPPED_HIGH.index]);
                 dropSumObject.put(DropStatus.DROPPED_MIDDLE.name(), dropSum[DropStatus.DROPPED_MIDDLE.index]);
@@ -258,10 +266,10 @@ public class FrameTracer extends Tracer {
                 JSONObject resultObject = new JSONObject();
                 resultObject = DeviceUtil.getDeviceInfo(resultObject, plugin.getApplication());
 
-                resultObject.put(SharePluginInfo.ISSUE_SCENE, visibleScene);
-                resultObject.put(SharePluginInfo.ISSUE_DROP_LEVEL, dropLevelObject);
-                resultObject.put(SharePluginInfo.ISSUE_DROP_SUM, dropSumObject);
-                resultObject.put(SharePluginInfo.ISSUE_FPS, fps);
+                resultObject.put(SharePluginInfo.ISSUE_SCENE, visibleScene);//scene：当前可见的activity
+                resultObject.put(SharePluginInfo.ISSUE_DROP_LEVEL, dropLevelObject);//dropLevel：记录各个卡段级别出现的次数，卡顿级别可分为DROPPED_FROZEN,DROPPED_HIGH,DROPPED_MIDDLE,DROPPED_NORMAL,DROPPED_BEST;例："DROPPED_MIDDLE":18，表示时间阈值内共有 18此时 DROPPED_MIDDLE的情况
+                resultObject.put(SharePluginInfo.ISSUE_DROP_SUM, dropSumObject);//dropSum：记录各个卡段级别掉帧总数，例："DROPPED_MIDDLE":218, 表示时间阈值内共有 218帧是 位于 DROPPED_MIDDLE
+                resultObject.put(SharePluginInfo.ISSUE_FPS, fps);//fps：时间阈值内的平均帧率
 
                 Issue issue = new Issue();
                 issue.setTag(SharePluginInfo.TAG_PLUGIN_FPS);

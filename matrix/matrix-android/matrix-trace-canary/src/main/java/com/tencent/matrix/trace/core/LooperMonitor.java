@@ -82,8 +82,8 @@ public class LooperMonitor implements MessageQueue.IdleHandler {
     public LooperMonitor(Looper looper) {
         Objects.requireNonNull(looper);
         this.looper = looper;
-        resetPrinter();
-        addIdleHandler(looper);
+        resetPrinter();//添加 自定义的 Printer
+        addIdleHandler(looper);//添加 IdleHandler
     }
 
     private LooperMonitor() {
@@ -117,9 +117,9 @@ public class LooperMonitor implements MessageQueue.IdleHandler {
     private synchronized void resetPrinter() {
         Printer originPrinter = null;
         try {
-            if (!isReflectLoggingError) {
+            if (!isReflectLoggingError) {//获取之前的 Printer ,防止项目其他功能在 设置了 这个 Printer， 如果直接设置
                 originPrinter = ReflectUtils.get(looper.getClass(), "mLogging", looper);
-                if (originPrinter == printer && null != printer) {
+                if (originPrinter == printer && null != printer) {//如果已经 hook过 就直接返回
                     return;
                 }
             }
@@ -132,7 +132,7 @@ public class LooperMonitor implements MessageQueue.IdleHandler {
             MatrixLog.w(TAG, "maybe thread:%s printer[%s] was replace other[%s]!",
                     looper.getThread().getName(), printer, originPrinter);
         }
-        looper.setMessageLogging(printer = new LooperPrinter(originPrinter));
+        looper.setMessageLogging(printer = new LooperPrinter(originPrinter));//设置自己的Printer
         if (null != originPrinter) {
             MatrixLog.i(TAG, "reset printer, originPrinter[%s] in %s", originPrinter, looper.getThread().getName());
         }
@@ -178,7 +178,7 @@ public class LooperMonitor implements MessageQueue.IdleHandler {
         @Override
         public void println(String x) {
             if (null != origin) {
-                origin.println(x);
+                origin.println(x);//执行原始printer的 println方法
                 if (origin == this) {
                     throw new RuntimeException(TAG + " origin == this");
                 }
@@ -200,21 +200,21 @@ public class LooperMonitor implements MessageQueue.IdleHandler {
     }
 
 
-    private void dispatch(boolean isBegin, String log) {
+    private void dispatch(boolean isBegin, String log) {//通过该方法就会通知给所有的LooperDispatchListener当前是Looper刚开始分发还是已经分发完成
 
         for (LooperDispatchListener listener : listeners) {
             if (listener.isValid()) {
                 if (isBegin) {
                     if (!listener.isHasDispatchStart) {
-                        listener.onDispatchStart(log);
+                        listener.onDispatchStart(log);//分发开始
                     }
                 } else {
                     if (listener.isHasDispatchStart) {
-                        listener.onDispatchEnd(log);
+                        listener.onDispatchEnd(log);//分发结束
                     }
                 }
             } else if (!isBegin && listener.isHasDispatchStart) {
-                listener.dispatchEnd();
+                listener.dispatchEnd();//分发结束
             }
         }
 

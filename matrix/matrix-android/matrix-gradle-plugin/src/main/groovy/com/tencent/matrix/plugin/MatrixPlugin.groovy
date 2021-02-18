@@ -35,6 +35,7 @@ class MatrixPlugin implements Plugin<Project> {
 
     @Override
     void apply(Project project) {
+        //创建 extension
         project.extensions.create("matrix", MatrixExtension)
         project.matrix.extensions.create("trace", MatrixTraceExtension)
         project.matrix.extensions.create("removeUnusedResources", MatrixDelUnusedResConfiguration)
@@ -46,11 +47,11 @@ class MatrixPlugin implements Plugin<Project> {
             def android = project.extensions.android
             def configuration = project.matrix
             android.applicationVariants.all { variant ->
-
+                //注入MatrixTraceTransform
                 if (configuration.trace.enable) {
                     com.tencent.matrix.trace.transform.MatrixTraceTransform.inject(project, configuration.trace, variant.getVariantData().getScope())
                 }
-
+                //移除无用资源
                 if (configuration.removeUnusedResources.enable) {
                     if (Util.isNullOrNil(configuration.removeUnusedResources.variant) || variant.name.equalsIgnoreCase(configuration.removeUnusedResources.variant)) {
                         Log.i(TAG, "removeUnusedResources %s", configuration.removeUnusedResources)

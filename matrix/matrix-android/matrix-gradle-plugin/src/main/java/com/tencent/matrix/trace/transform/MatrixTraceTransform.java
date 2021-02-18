@@ -81,25 +81,32 @@ public class MatrixTraceTransform extends Transform {
                 FD_OUTPUTS,
                 "traceClassOut",
                 variantScope.getVariantConfiguration().getDirName());
+        //收集配置信息
         Configuration config = new Configuration.Builder()
-                .setPackageName(variant.getApplicationId())
-                .setBaseMethodMap(extension.getBaseMethodMapFile())
-                .setBlackListFile(extension.getBlackListFile())
-                .setMethodMapFilePath(mappingOut + "/methodMapping.txt")
-                .setIgnoreMethodMapFilePath(mappingOut + "/ignoreMethodMapping.txt")
-                .setMappingPath(mappingOut)
-                .setTraceClassOut(traceClassOut)
+                .setPackageName(variant.getApplicationId())//包名
+                .setBaseMethodMap(extension.getBaseMethodMapFile())//build.gradle 中配置的 baseMethodMapFile ,保存的是 我们指定需要被 插桩的方法
+                .setBlackListFile(extension.getBlackListFile())//build.gradle 中配置的 blackListFile ，保存的是 不需要插桩的文件
+                .setMethodMapFilePath(mappingOut + "/methodMapping.txt") // 记录插桩 methodId 和 method的 关系
+                .setIgnoreMethodMapFilePath(mappingOut + "/ignoreMethodMapping.txt") // 记录 没有被 插桩的方法
+                .setMappingPath(mappingOut)//mapping文件存储目录
+                .setTraceClassOut(traceClassOut)//插桩后的 class存储目录
                 .build();
 
         try {
+            // 获取 TransformTask.. 具体名称 如：transformClassesWithDexBuilderForDebug 和 transformClassesWithDexForDebug
+            // 具体是哪一个 应该和 gradle的版本有关
+            // 在该 task之前  proguard 操作 已经完成
             String[] hardTask = getTransformTaskName(extension.getCustomDexTransformName(), variant.getName());
             for (Task task : project.getTasks()) {
                 for (String str : hardTask) {
+                    // 找到 task 并进行 hook
                     if (task.getName().equalsIgnoreCase(str) && task instanceof TransformTask) {
                         TransformTask transformTask = (TransformTask) task;
                         Log.i(TAG, "successfully inject task:" + transformTask.getName());
                         Field field = TransformTask.class.getDeclaredField("transform");
                         field.setAccessible(true);
+                        // 将 系统的  "transformClassesWithDexBuilderFor.."和"transformClassesWithDexFor.."
+                        // 中的 transform 替换为 MatrixTraceTransform(也就是当前类)
                         field.set(task, new MatrixTraceTransform(config, transformTask.getTransform()));
                         break;
                     }
@@ -125,8 +132,8 @@ public class MatrixTraceTransform extends Transform {
     }
 
     public MatrixTraceTransform(Configuration config, Transform origTransform) {
-        this.config = config;
-        this.origTransform = origTransform;
+        this.config = config;//配置
+        this.origTransform = origTransform;//原始Transform 也就是被 hook的 Transform
     }
 
     @Override
@@ -160,29 +167,31 @@ public class MatrixTraceTransform extends Transform {
         }
         long cost = System.currentTimeMillis() - start;
         long begin = System.currentTimeMillis();
-        origTransform.transform(transformInvocation);
+        origTransform.transform(transformInvocation);//执行原来应该执行的 Transform 的 transform 方法
         long origTransformCost = System.currentTimeMillis() - begin;
         Log.i("Matrix." + getName(), "[transform] cost time: %dms %s:%sms MatrixTraceTransform:%sms", System.currentTimeMillis() - start, origTransform.getClass().getSimpleName(), origTransformCost, cost);
     }
 
     private void doTransform(TransformInvocation transformInvocation) throws ExecutionException, InterruptedException {
-        final boolean isIncremental = transformInvocation.isIncremental() && this.isIncremental();
+        final boolean isIncremental = transformInvocation.isIncremental() && this.isIncremental(); //是否增量编译
 
         /**
          * step 1
+         * 1.解析mapping 文件混淆后方法对应关系
+         * 2.替换文件目录
          */
         long start = System.currentTimeMillis();
 
         List<Future> futures = new LinkedList<>();
 
-        final MappingCollector mappingCollector = new MappingCollector();
-        final AtomicInteger methodId = new AtomicInteger(0);
-        final ConcurrentHashMap<String, TraceMethod> collectedMethodMap = new ConcurrentHashMap<>();
+        final MappingCollector mappingCollector = new MappingCollector();// 存储 混淆前方法、混淆后方法的映射关系
+        final AtomicInteger methodId = new AtomicInteger(0);// methodId 计数器
+        final ConcurrentHashMap<String, TraceMethod> collectedMethodMap = new ConcurrentHashMap<>(); // 存储 需要插桩的 方法名 和 方法的封装对象TraceMethod
 
-        futures.add(executor.submit(new ParseMappingTask(mappingCollector, collectedMethodMap, methodId)));
+        futures.add(executor.submit(new ParseMappingTask(mappingCollector, collectedMethodMap, methodId)));// 将 ParseMappingTask 放入线程池
 
-        Map<File, File> dirInputOutMap = new ConcurrentHashMap<>();
-        Map<File, File> jarInputOutMap = new ConcurrentHashMap<>();
+        Map<File, File> dirInputOutMap = new ConcurrentHashMap<>();//存放原始源文件和输出源文件的对应关系
+        Map<File, File> jarInputOutMap = new ConcurrentHashMap<>(); //存放原始jar文件和输出jar文件对应关系
         Collection<TransformInput> inputs = transformInvocation.getInputs();
 
         for (TransformInput input : inputs) {
@@ -206,17 +215,19 @@ public class MatrixTraceTransform extends Transform {
 
         /**
          * step 2
+         * 1. 收集需要插桩和不需要插桩的方法，并记录在 mapping文件中
+         * 2. 收集类之间的继承关系
          */
         start = System.currentTimeMillis();
-        MethodCollector methodCollector = new MethodCollector(executor, mappingCollector, methodId, config, collectedMethodMap);
+        MethodCollector methodCollector = new MethodCollector(executor, mappingCollector, methodId, config, collectedMethodMap);//收集需要插桩的方法信息，每个插桩信息封装成TraceMethod对象
         methodCollector.collect(dirInputOutMap.keySet(), jarInputOutMap.keySet());
         Log.i(TAG, "[doTransform] Step(2)[Collection]... cost:%sms", System.currentTimeMillis() - start);
 
         /**
-         * step 3
+         * step 3  插桩字节码
          */
         start = System.currentTimeMillis();
-        MethodTracer methodTracer = new MethodTracer(executor, mappingCollector, config, methodCollector.getCollectedMethodMap(), methodCollector.getCollectedClassExtendMap());
+        MethodTracer methodTracer = new MethodTracer(executor, mappingCollector, config, methodCollector.getCollectedMethodMap(), methodCollector.getCollectedClassExtendMap());//执行插桩逻辑，在需要插桩方法的入口、出口添加MethodBeat的i/o逻辑
         methodTracer.trace(dirInputOutMap, jarInputOutMap);
         Log.i(TAG, "[doTransform] Step(3)[Trace]... cost:%sms", System.currentTimeMillis() - start);
 
@@ -342,8 +353,8 @@ public class MatrixTraceTransform extends Transform {
         }
 
         private void handle() throws IOException, IllegalAccessException, NoSuchFieldException, ClassNotFoundException {
-            final File dirInput = directoryInput.getFile();
-            final File dirOutput = new File(traceClassOut, dirInput.getName());
+            final File dirInput = directoryInput.getFile();//获取原始文件
+            final File dirOutput = new File(traceClassOut, dirInput.getName());//创建输出文件
             final String inputFullPath = dirInput.getAbsolutePath();
             final String outputFullPath = dirOutput.getAbsolutePath();
 
@@ -359,30 +370,30 @@ public class MatrixTraceTransform extends Transform {
                 }
             }
 
-            if (isIncremental) {
+            if (isIncremental) {//增量更新，只操作有改动的文件
                 Map<File, Status> fileStatusMap = directoryInput.getChangedFiles();
-                final Map<File, Status> outChangedFiles = new HashMap<>();
+                final Map<File, Status> outChangedFiles = new HashMap<>();//保存输出文件和其状态的 map
 
                 for (Map.Entry<File, Status> entry : fileStatusMap.entrySet()) {
                     final Status status = entry.getValue();
                     final File changedFileInput = entry.getKey();
 
                     final String changedFileInputFullPath = changedFileInput.getAbsolutePath();
-                    final File changedFileOutput = new File(changedFileInputFullPath.replace(inputFullPath, outputFullPath));
+                    final File changedFileOutput = new File(changedFileInputFullPath.replace(inputFullPath, outputFullPath));//增量编译模式下之前的build输出已经重定向到dirOutput；替换成output的目录
 
                     if (status == Status.ADDED || status == Status.CHANGED) {
-                        dirInputOutMap.put(changedFileInput, changedFileOutput);
+                        dirInputOutMap.put(changedFileInput, changedFileOutput);//新增、修改的Class文件，此次需要扫描
                     } else if (status == Status.REMOVED) {
-                        changedFileOutput.delete();
+                        changedFileOutput.delete();//删除的Class文件，将文件直接删除
                     }
                     outChangedFiles.put(changedFileOutput, status);
                 }
-                replaceChangedFile(directoryInput, outChangedFiles);
+                replaceChangedFile(directoryInput, outChangedFiles);//使用反射替换directoryInput的  改动文件目录
 
             } else {
-                dirInputOutMap.put(dirInput, dirOutput);
+                dirInputOutMap.put(dirInput, dirOutput);//全量编译模式下，所有的Class文件都需要扫描
             }
-            replaceFile(directoryInput, dirOutput);
+            replaceFile(directoryInput, dirOutput);//反射input，将dirOutput设置为其输出目录
         }
     }
 
@@ -410,10 +421,10 @@ public class MatrixTraceTransform extends Transform {
         }
 
         private void handle() throws IllegalAccessException, NoSuchFieldException, ClassNotFoundException, IOException {
-            String traceClassOut = config.traceClassOut;
+            String traceClassOut = config.traceClassOut;// traceClassOut 文件夹地址
 
             final File jarInput = inputJar.getFile();
-            final File jarOutput = new File(traceClassOut, getUniqueJarName(jarInput));
+            final File jarOutput = new File(traceClassOut, getUniqueJarName(jarInput));//创建唯一的 文件
             if (jarOutput.exists()) {
                 jarOutput.delete();
             }
@@ -422,18 +433,18 @@ public class MatrixTraceTransform extends Transform {
             }
 
             if (IOUtil.isRealZipOrJar(jarInput)) {
-                if (isIncremental) {
+                if (isIncremental) {//是增量
                     if (inputJar.getStatus() == Status.ADDED || inputJar.getStatus() == Status.CHANGED) {
-                        jarInputOutMap.put(jarInput, jarOutput);
+                        jarInputOutMap.put(jarInput, jarOutput);//存放到 jarInputOutMap 中
                     } else if (inputJar.getStatus() == Status.REMOVED) {
                         jarOutput.delete();
                     }
 
                 } else {
-                    jarInputOutMap.put(jarInput, jarOutput);
+                    jarInputOutMap.put(jarInput, jarOutput);//存放到 jarInputOutMap 中
                 }
 
-            } else {
+            } else {// 专门用于 处理 WeChat AutoDex.jar 文件 可以略过，意义不大
                 Log.i(TAG, "Special case for WeChat AutoDex. Its rootInput jar file is actually a txt file contains path list.");
                 // Special case for WeChat AutoDex. Its rootInput jar file is actually
                 // a txt file contains path list.
@@ -476,7 +487,7 @@ public class MatrixTraceTransform extends Transform {
                 jarInput.delete(); // delete raw inputList
             }
 
-            replaceFile(inputJar, jarOutput);
+            replaceFile(inputJar, jarOutput);//将 inputJar 的 file 属性替换为 jarOutput
 
         }
     }

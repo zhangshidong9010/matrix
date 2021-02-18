@@ -46,6 +46,25 @@ import static android.os.SystemClock.uptimeMillis;
  * .                         |<-----warmCost---->|
  *
  * </p>
+ * 当 onActivityFocused 被回调时，进行各个时间点的计算，配合 AppMethodBeat 中记录的方法执行时间，通过一定的逻辑 筛选出 导致启动时间长的方法并上报。
+ * tag: Trace_EvilMethod or Trace_StartUp
+ *
+ * StartupTracer 上报数据解析
+ *
+ * application_create：（Application的启动时间）第一次启动Activity或者Service或者广播的时间（这里没有内容提供者是因为内容提供者是在Application初始化完成之前，加载完毕的） 减去 Application开始启动时间
+ * application_create_scene：启动场景 Activity（159,100），Service（114），broadcastReceiver（）113
+ * first_activity_create：（首屏启动时间）第一个Activity 可操作的时间（Activity获取焦点） 减去 Application开始启动时间
+ * startup_duration：启动时间可分为 ：
+ *     * （冷启动时间）：主Activity可操作的时间（Activity获取焦点） 减去 Application开始启动时间
+ *     * （暖启动时间）：最近一个Activity开始启动的时间 减去 这个Activity可操作的时间（Activity获取焦点）
+ * is_warm_start_up：是否是暖启动
+ *
+ * detail：固定为STARTUP
+ * cost：总耗时同 startup_duration
+ * stack：方法栈信息， 每个item之间用“\n”隔开，每个item的含义为，调用深度，methodId，调用次数，耗时
+ *     * 比如：0,118,1,5 -> 调用深度为0，methodId=118，调用次数=1，耗时5ms
+ * stackKey：主要耗时方法 的methodId
+ * subType：2：暖启动，1：冷启动
  */
 
 public class StartupTracer extends Tracer implements IAppMethodBeatListener, ActivityThreadHacker.IApplicationCreateListener, Application.ActivityLifecycleCallbacks {
@@ -66,8 +85,8 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
 
     public StartupTracer(TraceConfig config) {
         this.config = config;
-        this.isStartupEnable = config.isStartupEnable();
-        this.splashActivities = config.getSplashActivities();
+        this.isStartupEnable = config.isStartupEnable();//是否可用
+        this.splashActivities = config.getSplashActivities();//SplashActivities
         this.coldStartupThresholdMs = config.getColdStartupThresholdMs();
         this.warmStartupThresholdMs = config.getWarmStartupThresholdMs();
         this.isHasActivity = config.isHasActivity();
@@ -79,8 +98,8 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
         super.onAlive();
         MatrixLog.i(TAG, "[onAlive] isStartupEnable:%s", isStartupEnable);
         if (isStartupEnable) {
-            AppMethodBeat.getInstance().addListener(this);
-            Matrix.with().getApplication().registerActivityLifecycleCallbacks(this);
+            AppMethodBeat.getInstance().addListener(this);//注册全局Activity生命周期监听
+            Matrix.with().getApplication().registerActivityLifecycleCallbacks(this);//添加监听 可以感知 activity获得焦点 和 activity的生命周期
         }
     }
 
@@ -88,7 +107,7 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
     protected void onDead() {
         super.onDead();
         if (isStartupEnable) {
-            AppMethodBeat.getInstance().removeListener(this);
+            AppMethodBeat.getInstance().removeListener(this);//移除监听
             Matrix.with().getApplication().unregisterActivityLifecycleCallbacks(this);
         }
     }
@@ -110,7 +129,7 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
         }
 
         String activityName = activity.getClass().getName();
-        if (isColdStartup()) {
+        if (isColdStartup()) {//判断条件是 coldCost == 0 所以只会进来一次
             boolean isCreatedByLaunchActivity = ActivityThreadHacker.isCreatedByLaunchActivity();
             MatrixLog.i(TAG, "#ColdStartup# activity:%s, splashActivities:%s, empty:%b, "
                             + "isCreatedByLaunchActivity:%b, hasShowSplashActivity:%b, "
@@ -127,14 +146,14 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
             createdTimeMap.put(key, uptimeMillis() - createdTime);
 
             if (firstScreenCost == 0) {
-                this.firstScreenCost = uptimeMillis() - ActivityThreadHacker.getEggBrokenTime();
+                this.firstScreenCost = uptimeMillis() - ActivityThreadHacker.getEggBrokenTime();//首屏启动时间=当前时间点-APP启动时间点
             }
             if (hasShowSplashActivity) {
-                coldCost = uptimeMillis() - ActivityThreadHacker.getEggBrokenTime();
+                coldCost = uptimeMillis() - ActivityThreadHacker.getEggBrokenTime();//冷启动耗时计算
             } else {
                 if (splashActivities.contains(activityName)) {
                     hasShowSplashActivity = true;
-                } else if (splashActivities.isEmpty()) { //process which is has activity but not main UI process
+                } else if (splashActivities.isEmpty()) { //process which is has activity but not main UI process 未配置 splashActivities，冷启动时间 == 第一屏时间
                     if (isCreatedByLaunchActivity) {
                         coldCost = firstScreenCost;
                     } else {
@@ -163,7 +182,7 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
 
         } else if (isWarmStartUp()) {
             isWarmStartUp = false;
-            long warmCost = uptimeMillis() - lastCreateActivity;
+            long warmCost = uptimeMillis() - lastCreateActivity;//暖启动时间=当前时间- 最近一个activity被启动的时间
             MatrixLog.i(TAG, "#WarmStartup# activity:%s, warmCost:%d, now:%d, lastCreateActivity:%d", activityName, warmCost, uptimeMillis(), lastCreateActivity);
 
             if (warmCost > 0) {
@@ -181,19 +200,25 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
         return isWarmStartUp;
     }
 
+    /**
+     * @param applicationCost: application启动用时
+     * @param firstScreenCost: 首屏启动时间
+     * @param allCost          ：冷启动耗时 或者 暖启动耗时
+     * @param isWarmStartUp    ：是冷启动还是暖启动
+     */
     private void analyse(long applicationCost, long firstScreenCost, long allCost, boolean isWarmStartUp) {
         MatrixLog.i(TAG, "[report] applicationCost:%s firstScreenCost:%s allCost:%s isWarmStartUp:%s, createScene:%d",
                 applicationCost, firstScreenCost, allCost, isWarmStartUp, ActivityThreadHacker.sApplicationCreateScene);
         long[] data = new long[0];
-        if (!isWarmStartUp && allCost >= coldStartupThresholdMs) { // for cold startup
-            data = AppMethodBeat.getInstance().copyData(ActivityThreadHacker.sApplicationCreateBeginMethodIndex);
-            ActivityThreadHacker.sApplicationCreateBeginMethodIndex.release();
+        if (!isWarmStartUp && allCost >= coldStartupThresholdMs) { // for cold startup 冷启动时间>阈值
+            data = AppMethodBeat.getInstance().copyData(ActivityThreadHacker.sApplicationCreateBeginMethodIndex);//获取 AppMethodBeat.sBuffer 中记录的数据
+            ActivityThreadHacker.sApplicationCreateBeginMethodIndex.release();//移除 sApplicationCreateBeginMethodIndex 节点
 
-        } else if (isWarmStartUp && allCost >= warmStartupThresholdMs) {
+        } else if (isWarmStartUp && allCost >= warmStartupThresholdMs) {//暖启动时间>阈值
             data = AppMethodBeat.getInstance().copyData(ActivityThreadHacker.sLastLaunchActivityMethodIndex);
-            ActivityThreadHacker.sLastLaunchActivityMethodIndex.release();
+            ActivityThreadHacker.sLastLaunchActivityMethodIndex.release();//移除 sApplicationCreateBeginMethodIndex 节点
         }
-
+        //执行 AnalyseTask
         MatrixHandlerThread.getDefaultHandler().post(new AnalyseTask(data, applicationCost, firstScreenCost, allCost, isWarmStartUp, ActivityThreadHacker.sApplicationCreateScene));
 
     }
@@ -220,23 +245,23 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
         public void run() {
             LinkedList<MethodItem> stack = new LinkedList();
             if (data.length > 0) {
-                TraceDataUtils.structuredDataToStack(data, stack, false, -1);
-                TraceDataUtils.trimStack(stack, Constants.TARGET_EVIL_METHOD_STACK, new TraceDataUtils.IStructuredDataFilter() {
+                TraceDataUtils.structuredDataToStack(data, stack, false, -1);//根据之前 data 查到的 methodId ，拿到对应插桩函数的执行时间、执行深度，将每个函数的信息封装成 MethodItem，然后存储到 stack 集合当中
+                TraceDataUtils.trimStack(stack, Constants.TARGET_EVIL_METHOD_STACK, new TraceDataUtils.IStructuredDataFilter() {//根据规则 裁剪 stack 中的数据
                     @Override
                     public boolean isFilter(long during, int filterCount) {
-                        return during < filterCount * Constants.TIME_UPDATE_CYCLE_MS;
+                        return during < filterCount * Constants.TIME_UPDATE_CYCLE_MS;//如果 耗时小于 预设值 则进行裁剪
                     }
 
                     @Override
                     public int getFilterMaxCount() {
                         return Constants.FILTER_STACK_MAX_COUNT;
-                    }
+                    }//最大方法裁剪数 60
 
                     @Override
-                    public void fallback(List<MethodItem> stack, int size) {
+                    public void fallback(List<MethodItem> stack, int size) {//降级策略
                         MatrixLog.w(TAG, "[fallback] size:%s targetSize:%s stack:%s", size, Constants.TARGET_EVIL_METHOD_STACK, stack);
                         Iterator iterator = stack.listIterator(Math.min(size, Constants.TARGET_EVIL_METHOD_STACK));
-                        while (iterator.hasNext()) {
+                        while (iterator.hasNext()) {//循环删除 多余的shuju8
                             iterator.next();
                             iterator.remove();
                         }
@@ -247,12 +272,12 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
 
             StringBuilder reportBuilder = new StringBuilder();
             StringBuilder logcatBuilder = new StringBuilder();
-            long stackCost = Math.max(allCost, TraceDataUtils.stackToString(stack, reportBuilder, logcatBuilder));
-            String stackKey = TraceDataUtils.getTreeKey(stack, stackCost);
+            long stackCost = Math.max(allCost, TraceDataUtils.stackToString(stack, reportBuilder, logcatBuilder));//获取最大的启动时间
+            String stackKey = TraceDataUtils.getTreeKey(stack, stackCost);//查询出最耗时的 methodId
 
             // for logcat
             if ((allCost > coldStartupThresholdMs && !isWarmStartUp)
-                    || (allCost > warmStartupThresholdMs && isWarmStartUp)) {
+                    || (allCost > warmStartupThresholdMs && isWarmStartUp)) {// 如果超过阈值 打印log
                 MatrixLog.w(TAG, "stackKey:%s \n%s", stackKey, logcatBuilder.toString());
             }
 
@@ -260,6 +285,16 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
             report(applicationCost, firstScreenCost, reportBuilder, stackKey, stackCost, isWarmStartUp, scene);
         }
 
+        /**
+         * @param applicationCost：Application 启动时间
+         * @param firstScreenCost：首屏启动时间
+         * @param reportBuilder：需要上报的         method信息
+         * @param stackKey                    ：主要耗时方法id
+         * @param allCost:                    冷启动耗时 或者 暖启动耗时
+         * @param isWarmStartUp：是否是           暖启动
+         * @param scene：app                   启动时的场景（可分为 activity ，service ，brodcast ）
+         * 这个方法就是组建json然后进行上报的操作，在正常启动下会上报一组Tag为Trace_StartUp的json，如果启动时间超过了预设阈值的情况下还会上传一组Tag为Trace_EvilMethod的json
+         */
         private void report(long applicationCost, long firstScreenCost, StringBuilder reportBuilder, String stackKey,
                             long allCost, boolean isWarmStartUp, int scene) {
 
@@ -267,25 +302,25 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
             if (null == plugin) {
                 return;
             }
-            try {
+            try {//上报正常启动信息
                 JSONObject costObject = new JSONObject();
-                costObject = DeviceUtil.getDeviceInfo(costObject, Matrix.with().getApplication());
-                costObject.put(SharePluginInfo.STAGE_APPLICATION_CREATE, applicationCost);
-                costObject.put(SharePluginInfo.STAGE_APPLICATION_CREATE_SCENE, scene);
-                costObject.put(SharePluginInfo.STAGE_FIRST_ACTIVITY_CREATE, firstScreenCost);
-                costObject.put(SharePluginInfo.STAGE_STARTUP_DURATION, allCost);
-                costObject.put(SharePluginInfo.ISSUE_IS_WARM_START_UP, isWarmStartUp);
+                costObject = DeviceUtil.getDeviceInfo(costObject, Matrix.with().getApplication()); //添加设备信息
+                costObject.put(SharePluginInfo.STAGE_APPLICATION_CREATE, applicationCost);//Application 启动时间
+                costObject.put(SharePluginInfo.STAGE_APPLICATION_CREATE_SCENE, scene);//Application 启动场景
+                costObject.put(SharePluginInfo.STAGE_FIRST_ACTIVITY_CREATE, firstScreenCost);//首屏启动时间
+                costObject.put(SharePluginInfo.STAGE_STARTUP_DURATION, allCost);//冷启动时间 或者 暖启动时间
+                costObject.put(SharePluginInfo.ISSUE_IS_WARM_START_UP, isWarmStartUp);//冷启动 or 暖启动
                 Issue issue = new Issue();
                 issue.setTag(SharePluginInfo.TAG_PLUGIN_STARTUP);
                 issue.setContent(costObject);
-                plugin.onDetectIssue(issue);
+                plugin.onDetectIssue(issue);//上报
             } catch (JSONException e) {
                 MatrixLog.e(TAG, "[JSONException for StartUpReportTask error: %s", e);
             }
 
 
             if ((allCost > coldStartupThresholdMs && !isWarmStartUp)
-                    || (allCost > warmStartupThresholdMs && isWarmStartUp)) {
+                    || (allCost > warmStartupThresholdMs && isWarmStartUp)) {//上报 启动速度超过预设阈值的信息
 
                 try {
                     JSONObject jsonObject = new JSONObject();
@@ -314,10 +349,10 @@ public class StartupTracer extends Tracer implements IAppMethodBeatListener, Act
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
         MatrixLog.i(TAG, "activeActivityCount:%d, coldCost:%d", activeActivityCount, coldCost);
-        if (activeActivityCount == 0 && coldCost > 0) {
+        if (activeActivityCount == 0 && coldCost > 0) {//activeActivityCount == 0 && coldCost > 0 说明曾经已经冷启动过，这是没有activity了，但是进程还在
             lastCreateActivity = uptimeMillis();
             MatrixLog.i(TAG, "lastCreateActivity:%d, activity:%s", lastCreateActivity, activity.getClass().getName());
-            isWarmStartUp = true;
+            isWarmStartUp = true;//是否是暖启动
         }
         activeActivityCount++;
         if (isShouldRecordCreateTime) {

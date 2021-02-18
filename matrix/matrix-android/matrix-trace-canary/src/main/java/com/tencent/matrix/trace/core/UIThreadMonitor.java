@@ -87,22 +87,22 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
     }
 
     public void init(TraceConfig config) {
-        if (Thread.currentThread() != Looper.getMainLooper().getThread()) {
+        if (Thread.currentThread() != Looper.getMainLooper().getThread()) {//不是主线程 就抛出异常
             throw new AssertionError("must be init in main thread!");
         }
         this.config = config;
-        choreographer = Choreographer.getInstance();
-        callbackQueueLock = ReflectUtils.reflectObject(choreographer, "mLock", new Object());
-        callbackQueues = ReflectUtils.reflectObject(choreographer, "mCallbackQueues", null);
+        choreographer = Choreographer.getInstance();//从当前线程中获取到 Choreographer 对象
+        callbackQueueLock = ReflectUtils.reflectObject(choreographer, "mLock", new Object());// 获得 Choreographer 里的 mLock锁 对象
+        callbackQueues = ReflectUtils.reflectObject(choreographer, "mCallbackQueues", null);// 获得 Choreographer 里的 mCallbackQueues 对象
         if (null != callbackQueues) {
-            addInputQueue = ReflectUtils.reflectMethod(callbackQueues[CALLBACK_INPUT], ADD_CALLBACK, long.class, Object.class, Object.class);
-            addAnimationQueue = ReflectUtils.reflectMethod(callbackQueues[CALLBACK_ANIMATION], ADD_CALLBACK, long.class, Object.class, Object.class);
-            addTraversalQueue = ReflectUtils.reflectMethod(callbackQueues[CALLBACK_TRAVERSAL], ADD_CALLBACK, long.class, Object.class, Object.class);
+            addInputQueue = ReflectUtils.reflectMethod(callbackQueues[CALLBACK_INPUT], ADD_CALLBACK, long.class, Object.class, Object.class);//反射获得 callbackQueues 中第一个 CallbackQueue对象的 addCallbackLocked 的方法, 第一个 CallbackQueue 是处理 input事件的
+            addAnimationQueue = ReflectUtils.reflectMethod(callbackQueues[CALLBACK_ANIMATION], ADD_CALLBACK, long.class, Object.class, Object.class);//反射获得 callbackQueues 中第二个 CallbackQueue对象的 addCallbackLocked 的方法, 第二个 CallbackQueue 是处理 动画的
+            addTraversalQueue = ReflectUtils.reflectMethod(callbackQueues[CALLBACK_TRAVERSAL], ADD_CALLBACK, long.class, Object.class, Object.class);//反射获得 callbackQueues 中第三个 CallbackQueue对象的 addCallbackLocked 的方法, 第三个 CallbackQueue 是绘制完 用于回调的
         }
         vsyncReceiver = ReflectUtils.reflectObject(choreographer, "mDisplayEventReceiver", null);
-        frameIntervalNanos = ReflectUtils.reflectObject(choreographer, "mFrameIntervalNanos", Constants.DEFAULT_FRAME_DURATION);
+        frameIntervalNanos = ReflectUtils.reflectObject(choreographer, "mFrameIntervalNanos", Constants.DEFAULT_FRAME_DURATION);// 反射获得Choreographer记录的mFrameIntervalNanos变量并记录到自己的成员变量中
 
-        LooperMonitor.register(new LooperMonitor.LooperDispatchListener() {
+        LooperMonitor.register(new LooperMonitor.LooperDispatchListener() {//注册一个 LooperDispatchListener监听用来监控 Looper分发事件的开始和结束。
             @Override
             public boolean isValid() {
                 return isAlive;
@@ -148,7 +148,7 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
             return;
         }
         try {
-            synchronized (callbackQueueLock) {
+            synchronized (callbackQueueLock) {//和 Choreographer 中使用相同的 锁对象 都是 mLock
                 Method method = null;
                 switch (type) {
                     case CALLBACK_INPUT:
@@ -161,7 +161,7 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
                         method = addTraversalQueue;
                         break;
                 }
-                if (null != method) {
+                if (null != method) {//反射执行 CallbackQueue 的 addCallbackLocked 方法 ，并将我们自己的 callback 添加到回到队列中,在一帧绘制完毕后,会回调callback的run（）方法
                     method.invoke(callbackQueues[type], !isAddHeader ? SystemClock.uptimeMillis() : -1, callback, null);
                     callbackExist[type] = true;
                 }
@@ -193,14 +193,14 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
         }
     }
 
-    private void dispatchBegin() {
-        token = dispatchTimeMs[0] = System.nanoTime();
-        dispatchTimeMs[2] = SystemClock.currentThreadTimeMillis();
-        AppMethodBeat.i(AppMethodBeat.METHOD_ID_DISPATCH);
+    private void dispatchBegin() {//该方法中记录了dispatch开始的时间并将 Looper开始分发事件 这个消息通知给了各个 LooperObserver，我们在最开始介绍过Tracer类就继承了LooperObserver这也就是所有Tracer都具有感知每个Message开始，执行，结束具体时间的能力。
+        token = dispatchTimeMs[0] = System.nanoTime();//记录 dispatch 的起始时间
+        dispatchTimeMs[2] = SystemClock.currentThreadTimeMillis();// 记录 当前线程时间
+        AppMethodBeat.i(AppMethodBeat.METHOD_ID_DISPATCH);// 调用 i 方法
 
         synchronized (observers) {
             for (LooperObserver observer : observers) {
-                if (!observer.isDispatchBegin()) {
+                if (!observer.isDispatchBegin()) {//回调 所有 LooperObserver 的 dispatchBegin 方法
                     observer.dispatchBegin(dispatchTimeMs[0], dispatchTimeMs[2], token);
                 }
             }
@@ -211,14 +211,14 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
     }
 
     private void doFrameBegin(long token) {
-        this.isVsyncFrame = true;
+        this.isVsyncFrame = true;//记录帧刷新开始
     }
 
-    private void doFrameEnd(long token) {
+    private void doFrameEnd(long token) {// 记录 帧结束
 
-        doQueueEnd(CALLBACK_TRAVERSAL);
+        doQueueEnd(CALLBACK_TRAVERSAL);//traversal 结束
 
-        for (int i : queueStatus) {
+        for (int i : queueStatus) {// 如果有 没有结束的回调 则报错
             if (i != DO_QUEUE_END) {
                 queueCost[i] = DO_QUEUE_END_ERROR;
                 if (config.isDevEnv) {
@@ -226,9 +226,9 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
                 }
             }
         }
-        queueStatus = new int[CALLBACK_LAST + 1];
+        queueStatus = new int[CALLBACK_LAST + 1];//重置 queueStatus
 
-        addFrameCallback(CALLBACK_INPUT, this, true);
+        addFrameCallback(CALLBACK_INPUT, this, true);//继续添加  input callback
 
     }
 
@@ -237,30 +237,30 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
         if (config.isDevEnv()) {
             traceBegin = System.nanoTime();
         }
-        long startNs = token;
+        long startNs = token;//dispatch 起始时间
         long intendedFrameTimeNs = startNs;
-        if (isVsyncFrame) {
+        if (isVsyncFrame) {//帧刷新结束
             doFrameEnd(token);
             intendedFrameTimeNs = getIntendedFrameTimeNs(startNs);
         }
 
-        long endNs = System.nanoTime();
+        long endNs = System.nanoTime();//dispatch 结束时间
 
         synchronized (observers) {
-            for (LooperObserver observer : observers) {
+            for (LooperObserver observer : observers) { //回调 所有 LooperObserver 的 doFrame 方法
                 if (observer.isDispatchBegin()) {
                     observer.doFrame(AppMethodBeat.getVisibleScene(), startNs, endNs, isVsyncFrame, intendedFrameTimeNs, queueCost[CALLBACK_INPUT], queueCost[CALLBACK_ANIMATION], queueCost[CALLBACK_TRAVERSAL]);
                 }
             }
         }
 
-        dispatchTimeMs[3] = SystemClock.currentThreadTimeMillis();
-        dispatchTimeMs[1] = System.nanoTime();
+        dispatchTimeMs[3] = SystemClock.currentThreadTimeMillis();//记录 当前线程时间
+        dispatchTimeMs[1] = System.nanoTime();// 记录 dispatch 的结束时间
 
         AppMethodBeat.o(AppMethodBeat.METHOD_ID_DISPATCH);
 
         synchronized (observers) {
-            for (LooperObserver observer : observers) {
+            for (LooperObserver observer : observers) {// 回调 所有 LooperObserver的 dispatchEnd 方法
                 if (observer.isDispatchBegin()) {
                     observer.dispatchEnd(dispatchTimeMs[0], dispatchTimeMs[2], dispatchTimeMs[1], dispatchTimeMs[3], token, isVsyncFrame);
                 }
@@ -274,20 +274,20 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
     }
 
     private void doQueueBegin(int type) {
-        queueStatus[type] = DO_QUEUE_BEGIN;
-        queueCost[type] = System.nanoTime();
+        queueStatus[type] = DO_QUEUE_BEGIN;//标识当前 type 开始执行
+        queueCost[type] = System.nanoTime();// 当前type 回调开始时间
     }
 
     private void doQueueEnd(int type) {
-        queueStatus[type] = DO_QUEUE_END;
-        queueCost[type] = System.nanoTime() - queueCost[type];
+        queueStatus[type] = DO_QUEUE_END;//标识当前 type 执行结束
+        queueCost[type] = System.nanoTime() - queueCost[type];// 当前type 执行耗时
         synchronized (this) {
-            callbackExist[type] = false;
+            callbackExist[type] = false;// 当前type的 callback 是否还存在
         }
     }
 
     @Override
-    public synchronized void onStart() {
+    public synchronized void onStart() {//这个方法主要是 重置queueStatus和queueCost这两个重要的成员变量，然后调用addFrameCallback方法
         if (!isInit) {
             MatrixLog.e(TAG, "[onStart] is never init.");
             return;
@@ -298,8 +298,8 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
                 MatrixLog.i(TAG, "[onStart] callbackExist:%s %s", Arrays.toString(callbackExist), Utils.getStack());
                 callbackExist = new boolean[CALLBACK_LAST + 1];
             }
-            queueStatus = new int[CALLBACK_LAST + 1];
-            queueCost = new long[CALLBACK_LAST + 1];
+            queueStatus = new int[CALLBACK_LAST + 1];//标识对应 type 执行 开始 或者 结束
+            queueCost = new long[CALLBACK_LAST + 1];//type对应的 执行时间
             addFrameCallback(CALLBACK_INPUT, this, true);
         }
     }
@@ -309,14 +309,14 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
         final long start = System.nanoTime();
         try {
             doFrameBegin(token);
-            doQueueBegin(CALLBACK_INPUT);
+            doQueueBegin(CALLBACK_INPUT);//input开始
 
             addFrameCallback(CALLBACK_ANIMATION, new Runnable() {
 
                 @Override
                 public void run() {
-                    doQueueEnd(CALLBACK_INPUT);
-                    doQueueBegin(CALLBACK_ANIMATION);
+                    doQueueEnd(CALLBACK_INPUT);//input 结束
+                    doQueueBegin(CALLBACK_ANIMATION);//animation 开始
                 }
             }, true);
 
@@ -324,8 +324,8 @@ public class UIThreadMonitor implements BeatLifecycle, Runnable {
 
                 @Override
                 public void run() {
-                    doQueueEnd(CALLBACK_ANIMATION);
-                    doQueueBegin(CALLBACK_TRAVERSAL);
+                    doQueueEnd(CALLBACK_ANIMATION);//animation 结束
+                    doQueueBegin(CALLBACK_TRAVERSAL);//traversal 开始
                 }
             }, true);
 

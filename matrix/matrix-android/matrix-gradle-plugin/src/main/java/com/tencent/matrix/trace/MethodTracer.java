@@ -77,8 +77,8 @@ public class MethodTracer {
 
     public void trace(Map<File, File> srcFolderList, Map<File, File> dependencyJarList) throws ExecutionException, InterruptedException {
         List<Future> futures = new LinkedList<>();
-        traceMethodFromSrc(srcFolderList, futures);
-        traceMethodFromJar(dependencyJarList, futures);
+        traceMethodFromSrc(srcFolderList, futures);//对源文件进行插桩
+        traceMethodFromJar(dependencyJarList, futures);//对jar进行插桩
         for (Future future : futures) {
             future.get();
         }
@@ -124,18 +124,18 @@ public class MethodTracer {
             InputStream is = null;
             FileOutputStream os = null;
             try {
-                final String changedFileInputFullPath = classFile.getAbsolutePath();
-                final File changedFileOutput = new File(changedFileInputFullPath.replace(input.getAbsolutePath(), output.getAbsolutePath()));
+                final String changedFileInputFullPath = classFile.getAbsolutePath();//原始文件全路径
+                final File changedFileOutput = new File(changedFileInputFullPath.replace(input.getAbsolutePath(), output.getAbsolutePath()));//插桩后文件
                 if (!changedFileOutput.exists()) {
                     changedFileOutput.getParentFile().mkdirs();
                 }
                 changedFileOutput.createNewFile();
 
-                if (MethodCollector.isNeedTraceFile(classFile.getName())) {
+                if (MethodCollector.isNeedTraceFile(classFile.getName())) {//需要插桩
                     is = new FileInputStream(classFile);
                     ClassReader classReader = new ClassReader(is);
                     ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-                    ClassVisitor classVisitor = new TraceClassAdapter(Opcodes.ASM5, classWriter);
+                    ClassVisitor classVisitor = new TraceClassAdapter(Opcodes.ASM5, classWriter);// TraceClassAdapter 进行插桩
                     classReader.accept(classVisitor, ClassReader.EXPAND_FRAMES);
                     is.close();
 
@@ -144,9 +144,9 @@ public class MethodTracer {
                     } else {
                         os = new FileOutputStream(output);
                     }
-                    os.write(classWriter.toByteArray());
+                    os.write(classWriter.toByteArray());//将修改后的内容写入到 插装后的文件中
                     os.close();
-                } else {
+                } else {//不需要插桩，直接copy
                     FileUtil.copyFileUsingStream(classFile, changedFileOutput);
                 }
             } catch (Exception e) {
@@ -190,7 +190,7 @@ public class MethodTracer {
                 } else {
                     InputStream inputStream = zipFile.getInputStream(zipEntry);
                     ZipEntry newZipEntry = new ZipEntry(zipEntryName);
-                    FileUtil.addZipEntry(zipOutputStream, newZipEntry, inputStream);
+                    FileUtil.addZipEntry(zipOutputStream, newZipEntry, inputStream);//直接copy jar 到插装过后的 存放区
                 }
             }
         } catch (Exception e) {
@@ -253,9 +253,9 @@ public class MethodTracer {
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
             super.visit(version, access, name, signature, superName, interfaces);
             this.className = name;
-            this.isActivityOrSubClass = isActivityOrSubClass(className, collectedClassExtendMap);
-            this.isNeedTrace = MethodCollector.isNeedTrace(configuration, className, mappingCollector);
-            if ((access & Opcodes.ACC_ABSTRACT) > 0 || (access & Opcodes.ACC_INTERFACE) > 0) {
+            this.isActivityOrSubClass = isActivityOrSubClass(className, collectedClassExtendMap);//是否是 activity 或者其 子类
+            this.isNeedTrace = MethodCollector.isNeedTrace(configuration, className, mappingCollector);//是否需要被插桩
+            if ((access & Opcodes.ACC_ABSTRACT) > 0 || (access & Opcodes.ACC_INTERFACE) > 0) {//是否是抽象类、接口
                 this.isABSClass = true;
             }
 
@@ -267,7 +267,7 @@ public class MethodTracer {
             if (isABSClass) {
                 return super.visitMethod(access, name, desc, signature, exceptions);
             } else {
-                if (!hasWindowFocusMethod) {
+                if (!hasWindowFocusMethod) {//是否是onWindowFocusChange方法
                     hasWindowFocusMethod = MethodCollector.isWindowFocusChangeMethod(name, desc);
                 }
                 MethodVisitor methodVisitor = cv.visitMethod(access, name, desc, signature, exceptions);
@@ -280,7 +280,7 @@ public class MethodTracer {
         @Override
         public void visitEnd() {
             if (!hasWindowFocusMethod && isActivityOrSubClass && isNeedTrace) {
-                insertWindowFocusChangeMethod(cv, className);
+                insertWindowFocusChangeMethod(cv, className);//如果Activity的子类没有onWindowFocusChange方法，插入一个onWindowFocusChange方法
             }
             super.visitEnd();
         }
@@ -309,10 +309,10 @@ public class MethodTracer {
         }
 
         @Override
-        protected void onMethodEnter() {
+        protected void onMethodEnter() {//函数入口处添加 AppMethodBeat.i（）方法
             TraceMethod traceMethod = collectedMethodMap.get(methodName);
             if (traceMethod != null) {
-                traceMethodCount.incrementAndGet();
+                traceMethodCount.incrementAndGet();//traceMethodCount +1
                 mv.visitLdcInsn(traceMethod.id);
                 mv.visitMethodInsn(INVOKESTATIC, TraceBuildConstants.MATRIX_TRACE_CLASS, "i", "(I)V", false);
             }
@@ -337,10 +337,10 @@ public class MethodTracer {
         }*/
 
         @Override
-        protected void onMethodExit(int opcode) {
+        protected void onMethodExit(int opcode) {//函数出口处添加 AppMethodBeat.O（）方法
             TraceMethod traceMethod = collectedMethodMap.get(methodName);
             if (traceMethod != null) {
-                if (hasWindowFocusMethod && isActivityOrSubClass && isNeedTrace) {
+                if (hasWindowFocusMethod && isActivityOrSubClass && isNeedTrace) {//是 onWindowFocusChanged 方法 则在出口添加 AppMethodBeat.at()
                     TraceMethod windowFocusChangeMethod = TraceMethod.create(-1, Opcodes.ACC_PUBLIC, className,
                             TraceBuildConstants.MATRIX_TRACE_ON_WINDOW_FOCUS_METHOD, TraceBuildConstants.MATRIX_TRACE_ON_WINDOW_FOCUS_METHOD_ARGS);
                     if (windowFocusChangeMethod.equals(traceMethod)) {

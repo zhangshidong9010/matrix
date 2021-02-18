@@ -24,6 +24,17 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+/**
+ * tag: Trace_EvilMethod
+ * <p>
+ * detail：固定为NORMAL
+ * cost：总耗时
+ * usage：主线程cpu占用率
+ * scene：当前可见Activity名称
+ * stack：方法栈信息， 每个item之间用“\n”隔开，每个item的含义为，调用深度，methodId，调用次数，耗时
+ * 比如：0,118,1,5 -> 调用深度为0，methodId=118，调用次数=1，耗时5ms
+ * stackKey：主要耗时方法 的methodId
+ */
 public class EvilMethodTracer extends Tracer {
 
     private static final String TAG = "Matrix.EvilMethodTracer";
